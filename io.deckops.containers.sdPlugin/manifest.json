@@ -1,0 +1,86 @@
+{
+  "Name": "Docker Manager",
+  "Version": "1.6.0.0",
+  "Author": "DeckOps",
+  "Description": "Manage Docker containers on Unraid/Linux servers directly from your Stream Deck",
+  "Category": "Docker Manager",
+  "CategoryIcon": "imgs/category-icon",
+  "Icon": "imgs/plugin-icon",
+  "CodePath": "bin/plugin.js",
+  "UUID": "io.deckops.containers",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "6.5"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    },
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.15"
+    }
+  ],
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "enabled"
+  },
+  "Actions": [
+    {
+      "UUID": "io.deckops.containers.toggle",
+      "Name": "Container Control",
+      "Tooltip": "Control Docker containers - toggle, start, stop, restart, view status, or open URLs",
+      "Icon": "imgs/action-toggle",
+      "States": [
+        {
+          "Image": "imgs/state-stopped",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        },
+        {
+          "Image": "imgs/state-running",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/action-pi.html",
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "io.deckops.containers.logs",
+      "Name": "Container Logs",
+      "Tooltip": "View logs from a Docker container",
+      "Icon": "imgs/action-status",
+      "States": [
+        {
+          "Image": "imgs/state-stopped",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        },
+        {
+          "Image": "imgs/state-running",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/action-pi.html",
+      "SupportedInMultiActions": false
+    },
+    {
+      "UUID": "io.deckops.containers.debug",
+      "Name": "Debug Logs",
+      "Tooltip": "View plugin debug logs - helpful for troubleshooting",
+      "Icon": "imgs/action-status",
+      "States": [
+        {
+          "Image": "imgs/action-status",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/debug-pi.html",
+      "SupportedInMultiActions": false
+    }
+  ]
+}

@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Container Settings</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #2D2D2D;
+      color: #E8E8E8;
+      font-size: 12px;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      background: #1E1E1E;
+      color: #E8E8E8;
+      font-size: 12px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #0db7ed;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-config {
+      background: linear-gradient(135deg, #0db7ed 0%, #0a9fd4 100%);
+      color: white;
+      margin-bottom: 16px;
+    }
+    .btn-config:hover {
+      filter: brightness(1.1);
+    }
+    .btn-secondary {
+      background: #3C3C3C;
+      color: #E8E8E8;
+    }
+    .btn-secondary:hover {
+      background: #4C4C4C;
+    }
+
+    .container-list {
+      max-height: 180px;
+      overflow-y: auto;
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .container-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container-item:hover { background: #333; }
+    .container-item:last-child { border-bottom: none; }
+    .container-item.selected { background: rgba(13,183,237,0.2); }
+    .container-name { font-weight: 500; }
+    .container-state {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .container-state.running { background: #1E4620; color: #4CAF50; }
+    .container-state.stopped { background: #4A1E1E; color: #F44336; }
+
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-top: 12px;
+      text-align: center;
+    }
+    .status.info { background: rgba(33,150,243,0.2); color: #2196F3; }
+    .status.error { background: rgba(244,67,54,0.2); color: #F44336; }
+    .status.success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+
+    .hidden { display: none; }
+
+    .divider {
+      height: 1px;
+      background: #3C3C3C;
+      margin: 16px 0;
+    }
+
+    .action-group {
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Server Config Button -->
+  <button class="btn btn-config" id="openConfig">
+    ⚙️ Configure Server Connection
+  </button>
+
+  <div class="divider"></div>
+
+  <!-- Container Selection -->
+  <div class="section">
+    <div class="section-title">Container</div>
+
+    <div class="form-group">
+      <label class="form-label">Container Name or ID</label>
+      <input type="text" id="containerName" placeholder="plex, sonarr, nginx...">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Display Name (optional)</label>
+      <input type="text" id="displayName" placeholder="Custom button label">
+    </div>
+
+    <!-- Custom Icon Section -->
+    <div class="form-group">
+      <label class="form-label">Button Icon</label>
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <div id="iconPreview" style="
+          width: 48px; height: 48px;
+          background: #1E1E1E;
+          border: 1px solid #3C3C3C;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        ">
+          <span style="color: #666; font-size: 10px;">Preview</span>
+        </div>
+        <div style="flex: 1;">
+          <select id="iconSource" style="margin-bottom: 6px;">
+            <option value="default">Default (Letter Icon)</option>
+            <option value="file">Custom Image File</option>
+            <option value="url">From URL</option>
+          </select>
+          <input type="file" id="iconFile" accept="image/*" style="display: none;">
+          <input type="text" id="iconUrl" placeholder="https://example.com/icon.png" style="display: none;">
+          <button class="btn btn-secondary" id="selectIconFile" style="display: none; padding: 6px 10px; font-size: 11px;">
+            📁 Select Image
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-secondary" id="clearIcon" style="display: none; padding: 6px 10px; font-size: 11px;">
+        🗑️ Remove Custom Icon
+      </button>
+    </div>
+
+    <!-- Background Color -->
+    <div class="form-group" id="backgroundColorGroup">
+      <label class="form-label">Background Color</label>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="color" id="backgroundColor" value="#2a2a2a" style="width: 50px; height: 30px; padding: 0; border: 1px solid #444; cursor: pointer;">
+        <select id="backgroundColorPreset" style="flex: 1;">
+          <option value="">Custom</option>
+          <option value="#2a2a2a">Default Gray</option>
+          <option value="#1a1a2e">Dark Blue</option>
+          <option value="#1a2e1a">Dark Green</option>
+          <option value="#2e1a1a">Dark Red</option>
+          <option value="#2e2a1a">Dark Yellow</option>
+          <option value="#1a2e2e">Dark Cyan</option>
+          <option value="#2e1a2e">Dark Purple</option>
+          <option value="#000000">Black</option>
+        </select>
+        <button class="btn btn-secondary" id="clearBgColor" style="padding: 6px 10px; font-size: 11px;">
+          Reset
+        </button>
+      </div>
+      <div style="font-size: 10px; color: #666; margin-top: 4px;">Background shown behind the icon</div>
+    </div>
+
+    <!-- Show Title Toggle -->
+    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+      <input type="checkbox" id="showTitle" checked style="width: auto; margin: 0;">
+      <label for="showTitle" class="form-label" style="margin: 0; cursor: pointer;">Show Title</label>
+    </div>
+
+    <button class="btn btn-secondary" id="refreshContainers">
+      🔄 Load Containers from Server
+    </button>
+
+    <div id="searchContainer" class="form-group hidden" style="margin-top: 8px;">
+      <input type="text" id="containerSearch" placeholder="🔍 Search containers...">
+    </div>
+
+    <div id="containerList" class="container-list hidden"></div>
+    <div id="status" class="status hidden"></div>
+  </div>
+
+  <!-- Action Settings -->
+  <div class="section action-group" id="actionSettings">
+    <div class="section-title">Action (Short Press)</div>
+
+    <div class="form-group">
+      <label class="form-label">On Button Press</label>
+      <select id="actionType">
+        <option value="toggle">Toggle (Start/Stop)</option>
+        <option value="start">Start Only</option>
+        <option value="stop">Stop Only</option>
+        <option value="restart">Restart</option>
+        <option value="status">Status Only (no action)</option>
+        <option value="openUrl">Open URL</option>
+        <option value="copyToClipboard">Copy to Clipboard</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="primaryUrlGroup">
+      <label class="form-label">URL to Open</label>
+      <input type="text" id="primaryUrl" placeholder="https://plex.example.com">
+    </div>
+
+    <div class="form-group" id="clipboardTextGroup">
+      <label class="form-label">Text to Copy</label>
+      <input type="text" id="clipboardText" placeholder="Password, email, or any text...">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Refresh Interval (seconds)</label>
+      <input type="number" id="refreshInterval" value="5" min="1" max="300">
+    </div>
+  </div>
+
+  <!-- Debug Logs -->
+  <div class="section">
+    <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <span>Debug Logs</span>
+      <button class="btn" style="width: auto; padding: 4px 8px; font-size: 10px;" onclick="clearDebugLogs()">Clear</button>
+    </div>
+    <div id="debugLogs" style="
+      max-height: 150px;
+      overflow-y: auto;
+      background: #0d0d1a;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      padding: 8px;
+      font-family: monospace;
+      font-size: 10px;
+      color: #888;
+      white-space: pre-wrap;
+      word-break: break-all;
+    ">Waiting for logs...</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Long Press Settings -->
+  <div class="section action-group" id="longPressSettings">
+    <div class="section-title">Long Press (Hold Button)</div>
+
+    <div class="form-group">
+      <label class="form-label">Long Press Duration (ms)</label>
+      <input type="number" id="longPressDuration" value="500" min="200" max="2000" step="50">
+      <div style="font-size: 10px; color: #666; margin-top: 4px;">Hold time to trigger long press (200-2000ms)</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">On Long Press</label>
+      <select id="longPressAction">
+        <option value="">Same as short press</option>
+        <option value="toggle">Toggle (Start/Stop)</option>
+        <option value="start">Start Only</option>
+        <option value="stop">Stop Only</option>
+        <option value="restart">Restart</option>
+        <option value="status">Status Only</option>
+        <option value="openUrl">Open URL</option>
+        <option value="copyToClipboard">Copy to Clipboard</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="longPressUrlGroup">
+      <label class="form-label">URL to Open (Long Press)</label>
+      <input type="text" id="longPressUrl" placeholder="https://admin.example.com">
+    </div>
+
+    <div class="form-group" id="longPressClipboardTextGroup">
+      <label class="form-label">Text to Copy (Long Press)</label>
+      <input type="text" id="longPressClipboardText" placeholder="Password, email, or any text...">
+    </div>
+  </div>
+
+  <script>
+    let websocket = null;
+    let uuid = null;
+    let actionInfo = null;
+    let settings = {};
+    let globalSettings = {};
+    let currentAction = '';
+
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+      uuid = inUUID;
+      actionInfo = JSON.parse(inActionInfo);
+      settings = actionInfo.payload.settings || {};
+      currentAction = actionInfo.action;
+
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+
+      websocket.onopen = function() {
+        addDebugLog('WebSocket connected to Stream Deck');
+
+        websocket.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inUUID
+        }));
+
+        // Request global settings
+        websocket.send(JSON.stringify({
+          event: 'getGlobalSettings',
+          context: inUUID
+        }));
+
+        loadSettings();
+        setupUI();
+        addDebugLog('PI initialized, action: ' + currentAction);
+      };
+
+      websocket.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+
+        if (data.event === 'didReceiveGlobalSettings') {
+          globalSettings = data.payload.settings || {};
+          console.log('Got global settings:', globalSettings);
+        }
+
+        if (data.event === 'didReceiveSettings') {
+          settings = data.payload.settings || {};
+          loadSettings();
+        }
+
+        if (data.event === 'sendToPropertyInspector') {
+          handlePluginMessage(data.payload);
+        }
+      };
+    }
+
+    function setupUI() {
+      // Hide action settings for status action
+      const isStatus = currentAction.includes('status');
+      const isLogs = currentAction.includes('logs');
+
+      if (isStatus || isLogs) {
+        document.getElementById('actionSettings').classList.add('hidden');
+        document.getElementById('longPressSettings').classList.add('hidden');
+      }
+    }
+
+    function loadSettings() {
+      document.getElementById('containerName').value = settings.containerName || '';
+      document.getElementById('displayName').value = settings.displayName || '';
+      document.getElementById('actionType').value = settings.action || 'toggle';
+      document.getElementById('refreshInterval').value = settings.refreshInterval || 5;
+      document.getElementById('primaryUrl').value = settings.primaryUrl || '';
+      document.getElementById('clipboardText').value = settings.clipboardText || '';
+      document.getElementById('longPressAction').value = settings.longPressAction || '';
+      document.getElementById('longPressUrl').value = settings.longPressUrl || '';
+      document.getElementById('longPressClipboardText').value = settings.longPressClipboardText || '';
+      document.getElementById('longPressDuration').value = settings.longPressDuration || 500;
+      document.getElementById('iconSource').value = settings.iconSource || 'default';
+      document.getElementById('showTitle').checked = settings.showTitle !== false; // Default true
+      document.getElementById('iconUrl').value = settings.iconUrl || '';
+      // Background color
+      const bgColor = settings.backgroundColor || '';
+      document.getElementById('backgroundColor').value = bgColor || '#2a2a2a';
+      document.getElementById('backgroundColorPreset').value = bgColor || '';
+      updateActionFieldsVisibility();
+      updateIconUI();
+      updateIconPreview();
+      updateBackgroundColorUI();
+    }
+
+    function saveSettings() {
+      const bgColorValue = document.getElementById('backgroundColor').value;
+      // Only save backgroundColor if it's not the default or empty
+      const backgroundColor = bgColorValue && bgColorValue !== '#2a2a2a' ? bgColorValue : '';
+
+      settings = {
+        containerName: document.getElementById('containerName').value,
+        displayName: document.getElementById('displayName').value,
+        action: document.getElementById('actionType').value,
+        refreshInterval: parseInt(document.getElementById('refreshInterval').value) || 5,
+        primaryUrl: document.getElementById('primaryUrl').value,
+        clipboardText: document.getElementById('clipboardText').value,
+        longPressAction: document.getElementById('longPressAction').value,
+        longPressUrl: document.getElementById('longPressUrl').value,
+        longPressClipboardText: document.getElementById('longPressClipboardText').value,
+        longPressDuration: parseInt(document.getElementById('longPressDuration').value) || 500,
+        iconSource: document.getElementById('iconSource').value,
+        iconUrl: document.getElementById('iconUrl').value,
+        customIconBase64: settings.customIconBase64 || '',
+        showTitle: document.getElementById('showTitle').checked,
+        backgroundColor: backgroundColor
+      };
+
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'setSettings',
+          context: uuid,
+          payload: settings
+        }));
+      }
+    }
+
+    function updateBackgroundColorUI() {
+      // Background color is always visible - works with all icon sources
+      const bgColorGroup = document.getElementById('backgroundColorGroup');
+      bgColorGroup.style.display = 'block';
+    }
+
+    function updateActionFieldsVisibility() {
+      const actionType = document.getElementById('actionType').value;
+      const longPressAction = document.getElementById('longPressAction').value;
+
+      // Show primary URL field if action is openUrl
+      const primaryUrlGroup = document.getElementById('primaryUrlGroup');
+      primaryUrlGroup.style.display = actionType === 'openUrl' ? 'block' : 'none';
+
+      // Show clipboard text field if action is copyToClipboard
+      const clipboardTextGroup = document.getElementById('clipboardTextGroup');
+      clipboardTextGroup.style.display = actionType === 'copyToClipboard' ? 'block' : 'none';
+
+      // Show long press URL field if long press action is openUrl
+      const longPressUrlGroup = document.getElementById('longPressUrlGroup');
+      longPressUrlGroup.style.display = longPressAction === 'openUrl' ? 'block' : 'none';
+
+      // Show long press clipboard text field if long press action is copyToClipboard
+      const longPressClipboardTextGroup = document.getElementById('longPressClipboardTextGroup');
+      longPressClipboardTextGroup.style.display = longPressAction === 'copyToClipboard' ? 'block' : 'none';
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+      status.classList.remove('hidden');
+    }
+
+    function handlePluginMessage(payload) {
+      if (payload.containers) {
+        addDebugLog('Received ' + payload.containers.length + ' containers');
+        displayContainers(payload.containers);
+      }
+      if (payload.error) {
+        addDebugLog('ERROR: ' + payload.error, 'error');
+        showStatus(payload.error, 'error');
+      }
+      if (payload.log) {
+        addDebugLog(payload.log, payload.logType || 'info');
+      }
+      // Handle connection test result (from config page relay)
+      if (payload.testStatus) {
+        showStatus(payload.message, payload.testStatus === 'success' ? 'success' : payload.testStatus === 'testing' ? 'info' : 'error');
+        addDebugLog('Connection test: ' + payload.message, payload.testStatus === 'error' ? 'error' : 'info');
+        // Relay result back to config window if open
+        if (configWindow && !configWindow.closed) {
+          configWindow.postMessage({ type: 'testResult', status: payload.testStatus, message: payload.message }, '*');
+        }
+      }
+    }
+
+    function addDebugLog(message, type = 'info') {
+      const debugLogs = document.getElementById('debugLogs');
+      const timestamp = new Date().toLocaleTimeString();
+      const color = type === 'error' ? '#F44336' : type === 'warn' ? '#FF9800' : '#4CAF50';
+      const logLine = document.createElement('div');
+      logLine.innerHTML = `<span style="color:#666;">[${timestamp}]</span> <span style="color:${color};">${message}</span>`;
+      debugLogs.appendChild(logLine);
+      debugLogs.scrollTop = debugLogs.scrollHeight;
+
+      // Keep only last 50 logs
+      while (debugLogs.children.length > 50) {
+        debugLogs.removeChild(debugLogs.firstChild);
+      }
+    }
+
+    function clearDebugLogs() {
+      document.getElementById('debugLogs').innerHTML = 'Logs cleared...';
+    }
+
+    let allContainers = [];
+
+    function displayContainers(containers) {
+      allContainers = containers || [];
+      const list = document.getElementById('containerList');
+      const searchContainer = document.getElementById('searchContainer');
+      list.classList.remove('hidden');
+
+      if (!containers || containers.length === 0) {
+        list.innerHTML = '<div style="padding: 16px; text-align: center; color: #666;">No containers found. Configure server first.</div>';
+        searchContainer.classList.add('hidden');
+        return;
+      }
+
+      // Show search bar
+      searchContainer.classList.remove('hidden');
+      document.getElementById('containerSearch').value = '';
+
+      renderContainerList(containers);
+    }
+
+    function renderContainerList(containers) {
+      const list = document.getElementById('containerList');
+
+      if (!containers || containers.length === 0) {
+        list.innerHTML = '<div style="padding: 16px; text-align: center; color: #666;">No matches found</div>';
+        return;
+      }
+
+      let html = '';
+      containers.forEach(c => {
+        const stateClass = c.state === 'running' ? 'running' : 'stopped';
+        const selected = settings.containerName === c.name ? 'selected' : '';
+        const iconHtml = c.iconUrl
+          ? `<img src="${c.iconUrl}" style="width: 24px; height: 24px; border-radius: 4px; margin-right: 8px;" onerror="this.style.display='none'">`
+          : '';
+        html += `<div class="container-item ${selected}" data-name="${c.name}" data-icon="${c.iconUrl || ''}">
+          <div style="display: flex; align-items: center;">
+            ${iconHtml}
+            <span class="container-name">${c.name}</span>
+          </div>
+          <span class="container-state ${stateClass}">${c.state}</span>
+        </div>`;
+      });
+      list.innerHTML = html;
+
+      list.querySelectorAll('.container-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const containerName = item.dataset.name;
+          const iconUrl = item.dataset.icon;
+
+          document.getElementById('containerName').value = containerName;
+          if (!document.getElementById('displayName').value) {
+            document.getElementById('displayName').value = containerName;
+          }
+
+          // Auto-load icon from container
+          if (iconUrl) {
+            document.getElementById('iconSource').value = 'url';
+            document.getElementById('iconUrl').value = iconUrl;
+            loadIconFromUrl();
+            addDebugLog('Auto-loading icon from container: ' + iconUrl);
+          }
+
+          list.querySelectorAll('.container-item').forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          updateIconUI();
+          saveSettings();
+          showStatus('Container selected!', 'success');
+        });
+      });
+    }
+
+    function filterContainers(searchTerm) {
+      const filtered = allContainers.filter(c =>
+        c.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      renderContainerList(filtered);
+    }
+
+    // Config window reference
+    let configWindow = null;
+
+    // Open config page
+    document.getElementById('openConfig').addEventListener('click', () => {
+      // Open the configuration page in a new window
+      configWindow = window.open('plugin-config.html', 'DockerManagerConfig', 'width=550,height=700,menubar=no,toolbar=no');
+    });
+
+    // Refresh containers
+    document.getElementById('refreshContainers').addEventListener('click', () => {
+      showStatus('Loading containers...', 'info');
+      addDebugLog('Button clicked: Load Containers');
+
+      if (websocket && websocket.readyState === 1) {
+        addDebugLog('Sending listContainers to plugin...');
+        websocket.send(JSON.stringify({
+          event: 'sendToPlugin',
+          context: uuid,
+          payload: { action: 'listContainers' }
+        }));
+      } else {
+        addDebugLog('WebSocket not ready! State: ' + (websocket ? websocket.readyState : 'null'), 'error');
+      }
+    });
+
+    // Auto-save on change
+    ['containerName', 'displayName', 'actionType', 'refreshInterval', 'primaryUrl', 'clipboardText', 'longPressAction', 'longPressUrl', 'longPressClipboardText', 'longPressDuration', 'showTitle'].forEach(id => {
+      document.getElementById(id).addEventListener('change', saveSettings);
+    });
+
+    // Update action fields visibility when action type changes
+    document.getElementById('actionType').addEventListener('change', updateActionFieldsVisibility);
+    document.getElementById('longPressAction').addEventListener('change', updateActionFieldsVisibility);
+
+    // Search containers
+    document.getElementById('containerSearch').addEventListener('input', (e) => {
+      filterContainers(e.target.value);
+    });
+
+    // Icon source handling
+    document.getElementById('iconSource').addEventListener('change', () => {
+      updateIconUI();
+      updateBackgroundColorUI();
+      saveSettings();
+    });
+
+    // Background color handling
+    document.getElementById('backgroundColor').addEventListener('input', () => {
+      document.getElementById('backgroundColorPreset').value = ''; // Set to custom
+      saveSettings();
+    });
+
+    document.getElementById('backgroundColorPreset').addEventListener('change', (e) => {
+      if (e.target.value) {
+        document.getElementById('backgroundColor').value = e.target.value;
+        saveSettings();
+      }
+    });
+
+    document.getElementById('clearBgColor').addEventListener('click', () => {
+      document.getElementById('backgroundColor').value = '#2a2a2a';
+      document.getElementById('backgroundColorPreset').value = '#2a2a2a';
+      saveSettings();
+    });
+
+    document.getElementById('selectIconFile').addEventListener('click', () => {
+      document.getElementById('iconFile').click();
+    });
+
+    document.getElementById('iconFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          settings.customIconBase64 = event.target.result.split(',')[1]; // Remove data:image/...;base64, prefix
+          updateIconPreview();
+          saveSettings();
+          addDebugLog('Custom icon loaded: ' + file.name);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('iconUrl').addEventListener('change', () => {
+      loadIconFromUrl();
+      saveSettings();
+    });
+
+    document.getElementById('clearIcon').addEventListener('click', () => {
+      settings.customIconBase64 = '';
+      document.getElementById('iconSource').value = 'default';
+      updateIconUI();
+      updateIconPreview();
+      saveSettings();
+      addDebugLog('Custom icon cleared');
+    });
+
+    function updateIconUI() {
+      const source = document.getElementById('iconSource').value;
+      const fileBtn = document.getElementById('selectIconFile');
+      const urlInput = document.getElementById('iconUrl');
+      const clearBtn = document.getElementById('clearIcon');
+
+      fileBtn.style.display = source === 'file' ? 'block' : 'none';
+      urlInput.style.display = source === 'url' ? 'block' : 'none';
+      clearBtn.style.display = (source !== 'default' && settings.customIconBase64) ? 'block' : 'none';
+    }
+
+    function updateIconPreview() {
+      const preview = document.getElementById('iconPreview');
+      const containerName = document.getElementById('containerName').value || 'C';
+
+      if (settings.customIconBase64) {
+        preview.innerHTML = `<img src="data:image/png;base64,${settings.customIconBase64}" style="width: 100%; height: 100%; object-fit: cover;">`;
+      } else {
+        // Show letter preview
+        const letter = containerName.charAt(0).toUpperCase();
+        preview.innerHTML = `<div style="
+          width: 100%; height: 100%;
+          background: linear-gradient(135deg, #3a3a3a 0%, #1a1a1a 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 24px;
+          font-weight: bold;
+        ">${letter}</div>`;
+      }
+    }
+
+    function loadIconFromUrl() {
+      const url = document.getElementById('iconUrl').value;
+      if (!url) return;
+
+      addDebugLog('Loading icon from URL: ' + url);
+
+      // Create an image to load the URL
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        // Create canvas to convert to base64
+        const canvas = document.createElement('canvas');
+        canvas.width = 144;
+        canvas.height = 144;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 144, 144);
+        settings.customIconBase64 = canvas.toDataURL('image/png').split(',')[1];
+        updateIconPreview();
+        saveSettings();
+        addDebugLog('Icon loaded from URL successfully');
+      };
+      img.onerror = () => {
+        addDebugLog('Failed to load icon from URL', 'error');
+      };
+      img.src = url;
+    }
+
+    // Update preview when container name changes
+    document.getElementById('containerName').addEventListener('change', updateIconPreview);
+
+    // Listen for messages from config window
+    window.addEventListener('message', (event) => {
+      if (event.data.action === 'saveSettings' && event.data.settings) {
+        // Save to global settings
+        globalSettings.serverConfig = event.data.settings;
+
+        if (websocket && websocket.readyState === 1) {
+          websocket.send(JSON.stringify({
+            event: 'setGlobalSettings',
+            context: uuid,
+            payload: globalSettings
+          }));
+        }
+        showStatus('Server settings saved!', 'success');
+        addDebugLog('Server settings saved from config page');
+      }
+
+      // Handle test connection request from config window
+      if (event.data.action === 'testConnection') {
+        addDebugLog('Test connection request from config page');
+        if (websocket && websocket.readyState === 1) {
+          websocket.send(JSON.stringify({
+            event: 'sendToPlugin',
+            context: uuid,
+            payload: { action: 'testConnection' }
+          }));
+        } else {
+          // Send error back to config window
+          if (event.source) {
+            event.source.postMessage({ type: 'testResult', status: 'error', message: 'Plugin not connected' }, '*');
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

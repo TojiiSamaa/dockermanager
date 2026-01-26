@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Debug Logs</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #2D2D2D;
+      color: #E8E8E8;
+      font-size: 12px;
+      padding: 12px;
+      min-height: 100vh;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #444;
+    }
+
+    .header h1 {
+      font-size: 14px;
+      color: #0db7ed;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0db7ed 0%, #0a9fd4 100%);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #3C3C3C;
+      color: #E8E8E8;
+    }
+
+    .btn-danger {
+      background: #c0392b;
+      color: white;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 10px;
+      color: #888;
+    }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-value {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .stat-info { color: #4CAF50; }
+    .stat-warn { color: #FF9800; }
+    .stat-error { color: #F44336; }
+
+    .filter-row {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 4px 8px;
+      border-radius: 10px;
+      font-size: 9px;
+      border: 1px solid #444;
+      background: transparent;
+      color: #888;
+      cursor: pointer;
+    }
+
+    .filter-btn.active {
+      background: #0db7ed;
+      border-color: #0db7ed;
+      color: white;
+    }
+
+    .logs-container {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      max-height: 350px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 9px;
+    }
+
+    .log-entry {
+      padding: 4px 8px;
+      border-bottom: 1px solid #252525;
+      display: flex;
+      gap: 6px;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-entry:hover {
+      background: rgba(255,255,255,0.03);
+    }
+
+    .log-time {
+      color: #666;
+      white-space: nowrap;
+      min-width: 70px;
+    }
+
+    .log-level {
+      font-weight: 600;
+      min-width: 40px;
+      text-transform: uppercase;
+      font-size: 8px;
+    }
+
+    .log-level.info { color: #4CAF50; }
+    .log-level.warn { color: #FF9800; }
+    .log-level.error { color: #F44336; }
+    .log-level.debug { color: #2196F3; }
+
+    .log-source {
+      color: #9c27b0;
+      min-width: 60px;
+    }
+
+    .log-msg {
+      flex: 1;
+      word-break: break-word;
+      color: #ccc;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: #666;
+    }
+
+    .status {
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .status.success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+    .status.error { background: rgba(244,67,54,0.2); color: #F44336; }
+    .status.info { background: rgba(33,150,243,0.2); color: #2196F3; }
+
+    .hidden { display: none; }
+
+    .auto-refresh {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: #888;
+      margin-top: 8px;
+    }
+
+    .copy-area {
+      margin-top: 10px;
+      padding: 8px;
+      background: #1E1E1E;
+      border: 1px solid #333;
+      border-radius: 4px;
+    }
+
+    .copy-area textarea {
+      width: 100%;
+      height: 60px;
+      background: #0d0d0d;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #888;
+      font-family: monospace;
+      font-size: 8px;
+      padding: 6px;
+      resize: none;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Debug Logs</h1>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="copyBtn">Copy All</button>
+      <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+      <button class="btn btn-danger" id="clearBtn">Clear</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">Total: <span class="stat-value" id="totalCount">0</span></div>
+    <div class="stat">Info: <span class="stat-value stat-info" id="infoCount">0</span></div>
+    <div class="stat">Warn: <span class="stat-value stat-warn" id="warnCount">0</span></div>
+    <div class="stat">Error: <span class="stat-value stat-error" id="errorCount">0</span></div>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="info">Info</button>
+    <button class="filter-btn" data-filter="warn">Warn</button>
+    <button class="filter-btn" data-filter="error">Error</button>
+    <button class="filter-btn" data-filter="debug">Debug</button>
+  </div>
+
+  <div class="logs-container" id="logsContainer">
+    <div class="empty-state">Waiting for logs...</div>
+  </div>
+
+  <div id="status" class="status hidden"></div>
+
+  <div class="auto-refresh">
+    <input type="checkbox" id="autoRefresh" checked>
+    <label for="autoRefresh">Auto-refresh (2s)</label>
+  </div>
+
+  <div class="copy-area">
+    <div style="font-size: 10px; margin-bottom: 4px; color: #888;">Copy logs to share:</div>
+    <textarea id="logsText" readonly placeholder="Click 'Copy All' or logs will appear here..."></textarea>
+    <button class="btn btn-primary" style="width: 100%;" onclick="copyToClipboard()">Copy to Clipboard</button>
+  </div>
+
+  <script>
+    let websocket = null;
+    let uuid = null;
+    let actionInfo = null;
+    let allLogs = [];
+    let currentFilter = 'all';
+    let refreshInterval = null;
+
+    function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo, inActionInfo) {
+      uuid = inPluginUUID;
+      actionInfo = JSON.parse(inActionInfo);
+
+      websocket = new WebSocket("ws://127.0.0.1:" + inPort);
+
+      websocket.onopen = function() {
+        websocket.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inPluginUUID
+        }));
+
+        // Request logs immediately
+        requestLogs();
+
+        // Start auto-refresh
+        startAutoRefresh();
+      };
+
+      websocket.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+
+        if (data.event === "sendToPropertyInspector") {
+          handlePluginMessage(data.payload);
+        }
+      };
+    }
+
+    function handlePluginMessage(payload) {
+      if (payload.logs !== undefined) {
+        allLogs = payload.logs || [];
+        renderLogs();
+        updateStats();
+        updateTextArea();
+      }
+
+      if (payload.cleared) {
+        allLogs = [];
+        renderLogs();
+        updateStats();
+        updateTextArea();
+        showStatus('Logs cleared', 'success');
+      }
+    }
+
+    function requestLogs() {
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({
+          action: actionInfo.action,
+          event: "sendToPlugin",
+          context: uuid,
+          payload: { action: "getLogs" }
+        }));
+      }
+    }
+
+    function clearLogs() {
+      if (confirm('Clear all logs?')) {
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+          websocket.send(JSON.stringify({
+            action: actionInfo.action,
+            event: "sendToPlugin",
+            context: uuid,
+            payload: { action: "clearLogs" }
+          }));
+        }
+      }
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logsContainer');
+
+      const filteredLogs = allLogs.filter(log => {
+        if (currentFilter === 'all') return true;
+        return log.level === currentFilter;
+      });
+
+      if (filteredLogs.length === 0) {
+        container.innerHTML = '<div class="empty-state">' +
+          (allLogs.length > 0 ? 'No logs match filter' : 'No logs yet. Press the button on Stream Deck or interact with the plugin.') +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = filteredLogs.map(log => {
+        const time = new Date(log.timestamp).toLocaleTimeString();
+        return `<div class="log-entry">
+          <span class="log-time">${time}</span>
+          <span class="log-level ${log.level}">${log.level}</span>
+          <span class="log-source">[${log.source}]</span>
+          <span class="log-msg">${escapeHtml(log.message)}</span>
+        </div>`;
+      }).join('');
+
+      // Scroll to bottom
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function updateStats() {
+      document.getElementById('totalCount').textContent = allLogs.length;
+      document.getElementById('infoCount').textContent = allLogs.filter(l => l.level === 'info').length;
+      document.getElementById('warnCount').textContent = allLogs.filter(l => l.level === 'warn').length;
+      document.getElementById('errorCount').textContent = allLogs.filter(l => l.level === 'error').length;
+    }
+
+    function updateTextArea() {
+      const logsText = allLogs.map(log => {
+        return `[${log.timestamp}] [${log.level.toUpperCase()}] [${log.source}] ${log.message}`;
+      }).join('\n');
+
+      document.getElementById('logsText').value = logsText || 'No logs yet...';
+    }
+
+    function copyToClipboard() {
+      const logsText = document.getElementById('logsText');
+      const header = `=== Docker Manager Debug Logs ===\nExported: ${new Date().toISOString()}\nTotal logs: ${allLogs.length}\n================================\n\n`;
+
+      const fullText = header + logsText.value;
+
+      navigator.clipboard.writeText(fullText).then(() => {
+        showStatus('Logs copied to clipboard!', 'success');
+      }).catch(() => {
+        // Fallback
+        logsText.select();
+        document.execCommand('copy');
+        showStatus('Logs copied!', 'success');
+      });
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+      status.classList.remove('hidden');
+      setTimeout(() => status.classList.add('hidden'), 2000);
+    }
+
+    function startAutoRefresh() {
+      const checkbox = document.getElementById('autoRefresh');
+
+      if (checkbox.checked) {
+        refreshInterval = setInterval(requestLogs, 2000);
+      }
+
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          refreshInterval = setInterval(requestLogs, 2000);
+        } else {
+          clearInterval(refreshInterval);
+        }
+      });
+    }
+
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderLogs();
+      });
+    });
+
+    // Action buttons
+    document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+    document.getElementById('refreshBtn').addEventListener('click', requestLogs);
+    document.getElementById('clearBtn').addEventListener('click', clearLogs);
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+  <rect width="20" height="20" rx="3" fill="#2D2D2D"/>
+  <!-- Gear icon -->
+  <circle cx="10" cy="10" r="3" fill="none" stroke="#0db7ed" stroke-width="1.5"/>
+  <g stroke="#0db7ed" stroke-width="1.5" stroke-linecap="round">
+    <line x1="10" y1="3" x2="10" y2="5"/>
+    <line x1="10" y1="15" x2="10" y2="17"/>
+    <line x1="3" y1="10" x2="5" y2="10"/>
+    <line x1="15" y1="10" x2="17" y2="10"/>
+    <line x1="5" y1="5" x2="6.4" y2="6.4"/>
+    <line x1="13.6" y1="13.6" x2="15" y2="15"/>
+    <line x1="5" y1="15" x2="6.4" y2="13.6"/>
+    <line x1="13.6" y1="6.4" x2="15" y2="5"/>
+  </g>
+</svg>

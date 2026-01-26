@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Container Toggle Settings</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #2D2D2D;
+      color: #E8E8E8;
+    }
+    .sdpi-item {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 12px;
+    }
+    .sdpi-item-label {
+      font-size: 11px;
+      color: #9B9B9B;
+      margin-bottom: 4px;
+    }
+    input, select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #3C3C3C;
+      border-radius: 4px;
+      background: #1E1E1E;
+      color: #E8E8E8;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #0078D4;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: bold;
+      margin: 16px 0 8px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #3C3C3C;
+    }
+    .hint {
+      font-size: 10px;
+      color: #777;
+      margin-top: 4px;
+    }
+    button {
+      padding: 8px 16px;
+      background: #0078D4;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    button:hover {
+      background: #1084D8;
+    }
+    #containerList {
+      max-height: 200px;
+      overflow-y: auto;
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    .container-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #3C3C3C;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container-item:hover {
+      background: #333;
+    }
+    .container-item:last-child {
+      border-bottom: none;
+    }
+    .container-name {
+      font-weight: 500;
+    }
+    .container-state {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .container-state.running {
+      background: #1E4620;
+      color: #4CAF50;
+    }
+    .container-state.stopped {
+      background: #4A1E1E;
+      color: #F44336;
+    }
+    .loading {
+      text-align: center;
+      padding: 16px;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="section-title">Container Selection</div>
+
+  <div class="sdpi-item">
+    <div class="sdpi-item-label">Container Name or ID</div>
+    <input type="text" id="containerName" placeholder="plex or abc123def456">
+    <div class="hint">Enter the container name or ID</div>
+  </div>
+
+  <div class="sdpi-item">
+    <div class="sdpi-item-label">Display Name (optional)</div>
+    <input type="text" id="displayName" placeholder="My Plex Server">
+    <div class="hint">Custom name shown on the Stream Deck button</div>
+  </div>
+
+  <button id="refreshContainers">Refresh Container List</button>
+
+  <div id="containerList" style="display: none;">
+    <div class="loading">Loading containers...</div>
+  </div>
+
+  <div class="section-title">Action Settings</div>
+
+  <div class="sdpi-item">
+    <div class="sdpi-item-label">Action on Press</div>
+    <select id="actionType">
+      <option value="toggle">Toggle (Start/Stop)</option>
+      <option value="start">Start Only</option>
+      <option value="stop">Stop Only</option>
+      <option value="restart">Restart</option>
+    </select>
+    <div class="hint">What happens when you press the button</div>
+  </div>
+
+  <div class="sdpi-item">
+    <div class="sdpi-item-label">Refresh Interval (seconds)</div>
+    <input type="number" id="refreshInterval" value="5" min="1" max="300">
+    <div class="hint">How often to check container status</div>
+  </div>
+
+  <script>
+    let websocket = null;
+    let uuid = null;
+    let actionInfo = null;
+    let settings = {};
+
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+      uuid = inUUID;
+      actionInfo = JSON.parse(inActionInfo);
+      settings = actionInfo.payload.settings || {};
+
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+
+      websocket.onopen = function() {
+        websocket.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inUUID
+        }));
+        loadSettings();
+      };
+
+      websocket.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+        if (data.event === 'didReceiveSettings') {
+          settings = data.payload.settings || {};
+          loadSettings();
+        }
+        if (data.event === 'sendToPropertyInspector') {
+          if (data.payload.containers) {
+            displayContainers(data.payload.containers);
+          }
+        }
+      };
+    }
+
+    function loadSettings() {
+      document.getElementById('containerName').value = settings.containerName || settings.containerId || '';
+      document.getElementById('displayName').value = settings.displayName || '';
+      document.getElementById('actionType').value = settings.action || 'toggle';
+      document.getElementById('refreshInterval').value = settings.refreshInterval || 5;
+    }
+
+    function saveSettings() {
+      settings = {
+        containerName: document.getElementById('containerName').value,
+        containerId: '',
+        displayName: document.getElementById('displayName').value,
+        action: document.getElementById('actionType').value,
+        refreshInterval: parseInt(document.getElementById('refreshInterval').value) || 5
+      };
+
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'setSettings',
+          context: uuid,
+          payload: settings
+        }));
+      }
+    }
+
+    function displayContainers(containers) {
+      const list = document.getElementById('containerList');
+      list.style.display = 'block';
+
+      if (!containers || containers.length === 0) {
+        list.innerHTML = '<div class="loading">No containers found</div>';
+        return;
+      }
+
+      let html = '';
+      containers.forEach(c => {
+        const stateClass = c.state === 'running' ? 'running' : 'stopped';
+        html += `<div class="container-item" data-name="${c.name}" data-id="${c.id}">
+          <span class="container-name">${c.name}</span>
+          <span class="container-state ${stateClass}">${c.state}</span>
+        </div>`;
+      });
+      list.innerHTML = html;
+
+      list.querySelectorAll('.container-item').forEach(item => {
+        item.addEventListener('click', () => {
+          document.getElementById('containerName').value = item.dataset.name;
+          if (!document.getElementById('displayName').value) {
+            document.getElementById('displayName').value = item.dataset.name;
+          }
+          saveSettings();
+        });
+      });
+    }
+
+    document.getElementById('refreshContainers').addEventListener('click', () => {
+      const list = document.getElementById('containerList');
+      list.style.display = 'block';
+      list.innerHTML = '<div class="loading">Loading containers...</div>';
+
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'sendToPlugin',
+          context: uuid,
+          payload: { action: 'listContainers' }
+        }));
+      }
+    });
+
+    ['containerName', 'displayName', 'actionType', 'refreshInterval'].forEach(id => {
+      document.getElementById(id).addEventListener('change', saveSettings);
+    });
+  </script>
+</body>
+</html>

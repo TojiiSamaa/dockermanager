@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Docker Server Settings</title>
+  <link rel="stylesheet" href="https://sdpi-components.elgato.com/dist/sdpi-components.css">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #2D2D2D;
+      color: #E8E8E8;
+    }
+    .sdpi-wrapper {
+      margin-bottom: 12px;
+    }
+    .sdpi-item {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 8px;
+    }
+    .sdpi-item-label {
+      font-size: 11px;
+      color: #9B9B9B;
+      margin-bottom: 4px;
+    }
+    .sdpi-item-value {
+      width: 100%;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #3C3C3C;
+      border-radius: 4px;
+      background: #1E1E1E;
+      color: #E8E8E8;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #0078D4;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: bold;
+      margin: 16px 0 8px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #3C3C3C;
+    }
+    .hidden {
+      display: none;
+    }
+    button {
+      padding: 8px 16px;
+      background: #0078D4;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    button:hover {
+      background: #1084D8;
+    }
+    .status {
+      font-size: 11px;
+      margin-top: 8px;
+      padding: 6px;
+      border-radius: 4px;
+    }
+    .status.success {
+      background: #1E4620;
+      color: #4CAF50;
+    }
+    .status.error {
+      background: #4A1E1E;
+      color: #F44336;
+    }
+  </style>
+</head>
+<body>
+  <div class="sdpi-wrapper">
+    <div class="section-title">Connection Type</div>
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Method</div>
+      <div class="sdpi-item-value">
+        <select id="connectionType">
+          <option value="ssh">SSH (Recommended)</option>
+          <option value="docker-api">Docker API (TCP)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- SSH Settings -->
+    <div id="ssh-settings">
+      <div class="section-title">SSH Connection</div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Host</div>
+        <div class="sdpi-item-value">
+          <input type="text" id="sshHost" placeholder="192.168.1.100 or hostname">
+        </div>
+      </div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Port</div>
+        <div class="sdpi-item-value">
+          <input type="number" id="sshPort" value="22" min="1" max="65535">
+        </div>
+      </div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Username</div>
+        <div class="sdpi-item-value">
+          <input type="text" id="sshUsername" placeholder="root">
+        </div>
+      </div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Authentication</div>
+        <div class="sdpi-item-value">
+          <select id="sshAuthType">
+            <option value="key">Private Key</option>
+            <option value="password">Password</option>
+          </select>
+        </div>
+      </div>
+      <div class="sdpi-item" id="sshKeyField">
+        <div class="sdpi-item-label">Private Key (paste content)</div>
+        <div class="sdpi-item-value">
+          <textarea id="sshPrivateKey" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----"></textarea>
+        </div>
+      </div>
+      <div class="sdpi-item hidden" id="sshPasswordField">
+        <div class="sdpi-item-label">Password</div>
+        <div class="sdpi-item-value">
+          <input type="password" id="sshPassword">
+        </div>
+      </div>
+    </div>
+
+    <!-- Docker API Settings -->
+    <div id="docker-settings" class="hidden">
+      <div class="section-title">Docker API Connection</div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Docker Host</div>
+        <div class="sdpi-item-value">
+          <input type="text" id="dockerHost" placeholder="192.168.1.100">
+        </div>
+      </div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">Port</div>
+        <div class="sdpi-item-value">
+          <input type="number" id="dockerPort" value="2375" min="1" max="65535">
+        </div>
+      </div>
+      <div class="sdpi-item">
+        <div class="sdpi-item-label">TLS Certificates Path (optional)</div>
+        <div class="sdpi-item-value">
+          <input type="text" id="dockerCertPath" placeholder="C:\certs\docker">
+        </div>
+      </div>
+    </div>
+
+    <button id="testConnection">Test Connection</button>
+    <div id="status" class="status hidden"></div>
+  </div>
+
+  <script>
+    let websocket = null;
+    let uuid = null;
+    let actionInfo = null;
+    let settings = {};
+
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+      uuid = inUUID;
+      actionInfo = JSON.parse(inActionInfo);
+      settings = actionInfo.payload.settings.serverConfig || {};
+
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+
+      websocket.onopen = function() {
+        websocket.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inUUID
+        }));
+        loadSettings();
+      };
+
+      websocket.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+        if (data.event === 'didReceiveSettings') {
+          settings = data.payload.settings.serverConfig || {};
+          loadSettings();
+        }
+      };
+    }
+
+    function loadSettings() {
+      document.getElementById('connectionType').value = settings.connectionType || 'ssh';
+
+      // SSH settings
+      document.getElementById('sshHost').value = settings.sshHost || '';
+      document.getElementById('sshPort').value = settings.sshPort || 22;
+      document.getElementById('sshUsername').value = settings.sshUsername || '';
+      document.getElementById('sshPrivateKey').value = settings.sshPrivateKey || '';
+      document.getElementById('sshPassword').value = settings.sshPassword || '';
+
+      // Docker API settings
+      document.getElementById('dockerHost').value = settings.dockerHost || '';
+      document.getElementById('dockerPort').value = settings.dockerPort || 2375;
+      document.getElementById('dockerCertPath').value = settings.dockerCertPath || '';
+
+      updateVisibility();
+    }
+
+    function saveSettings() {
+      const connectionType = document.getElementById('connectionType').value;
+
+      settings = {
+        connectionType: connectionType,
+        sshHost: document.getElementById('sshHost').value,
+        sshPort: parseInt(document.getElementById('sshPort').value) || 22,
+        sshUsername: document.getElementById('sshUsername').value,
+        sshPrivateKey: document.getElementById('sshPrivateKey').value,
+        sshPassword: document.getElementById('sshPassword').value,
+        dockerHost: document.getElementById('dockerHost').value,
+        dockerPort: parseInt(document.getElementById('dockerPort').value) || 2375,
+        dockerCertPath: document.getElementById('dockerCertPath').value
+      };
+
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'setSettings',
+          context: uuid,
+          payload: { serverConfig: settings }
+        }));
+      }
+    }
+
+    function updateVisibility() {
+      const connectionType = document.getElementById('connectionType').value;
+      const sshSettings = document.getElementById('ssh-settings');
+      const dockerSettings = document.getElementById('docker-settings');
+
+      if (connectionType === 'ssh') {
+        sshSettings.classList.remove('hidden');
+        dockerSettings.classList.add('hidden');
+      } else {
+        sshSettings.classList.add('hidden');
+        dockerSettings.classList.remove('hidden');
+      }
+
+      const authType = document.getElementById('sshAuthType').value;
+      const keyField = document.getElementById('sshKeyField');
+      const passField = document.getElementById('sshPasswordField');
+
+      if (authType === 'key') {
+        keyField.classList.remove('hidden');
+        passField.classList.add('hidden');
+      } else {
+        keyField.classList.add('hidden');
+        passField.classList.remove('hidden');
+      }
+    }
+
+    function showStatus(message, isSuccess) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.classList.remove('hidden', 'success', 'error');
+      status.classList.add(isSuccess ? 'success' : 'error');
+    }
+
+    // Event listeners
+    document.getElementById('connectionType').addEventListener('change', () => {
+      updateVisibility();
+      saveSettings();
+    });
+
+    document.getElementById('sshAuthType').addEventListener('change', () => {
+      updateVisibility();
+    });
+
+    ['sshHost', 'sshPort', 'sshUsername', 'sshPrivateKey', 'sshPassword',
+     'dockerHost', 'dockerPort', 'dockerCertPath'].forEach(id => {
+      document.getElementById(id).addEventListener('change', saveSettings);
+    });
+
+    document.getElementById('testConnection').addEventListener('click', () => {
+      showStatus('Testing connection...', true);
+      // The plugin will handle the actual connection test
+      saveSettings();
+    });
+  </script>
+</body>
+</html>

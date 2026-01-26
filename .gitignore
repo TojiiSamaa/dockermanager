@@ -1,0 +1,20 @@
+node_modules/
+*.log
+.DS_Store
+
+# Plugin build output
+io.deckops.containers.sdPlugin/bin/
+io.deckops.containers.sdPlugin/logs/
+*.streamDeckPlugin
+
+# Environment and secrets
+.env
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
