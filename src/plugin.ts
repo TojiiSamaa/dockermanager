@@ -2,6 +2,8 @@ import streamDeck, { LogLevel } from "@elgato/streamdeck";
 import { DockerToggleAction } from "./actions/docker-toggle";
 import { DockerLogsAction } from "./actions/docker-logs";
 import { DebugLogsAction, pluginLogger } from "./actions/debug-logs";
+import { DockerComposeAction } from "./actions/docker-compose";
+import { DockerImageAction } from "./actions/docker-image";
 import { globalSettings } from "./services/settings-manager";
 import { dockerService, ServerConfig } from "./services/docker-service";
 import { logServerManager } from "./services/log-server";
@@ -16,6 +18,8 @@ pluginLogger.info("Docker Manager plugin starting...", "plugin");
 streamDeck.actions.registerAction(new DockerToggleAction());
 streamDeck.actions.registerAction(new DockerLogsAction());
 streamDeck.actions.registerAction(new DebugLogsAction());
+streamDeck.actions.registerAction(new DockerComposeAction());
+streamDeck.actions.registerAction(new DockerImageAction());
 
 // Initialize settings and auto-connect
 async function initialize() {

@@ -1,6 +1,6 @@
 {
   "Name": "Docker Manager",
-  "Version": "1.6.0.0",
+  "Version": "2.0.0.0",
   "Author": "DeckOps",
   "Description": "Manage Docker containers on Unraid/Linux servers directly from your Stream Deck",
   "Category": "Docker Manager",
@@ -81,6 +81,41 @@
       ],
       "PropertyInspectorPath": "ui/debug-pi.html",
       "SupportedInMultiActions": false
+    },
+    {
+      "UUID": "io.deckops.containers.compose",
+      "Name": "Compose Stack",
+      "Tooltip": "Manage Docker Compose stacks - up, down, restart, build",
+      "Icon": "imgs/action-toggle",
+      "States": [
+        {
+          "Image": "imgs/state-stopped",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        },
+        {
+          "Image": "imgs/state-running",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/compose-pi.html",
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "io.deckops.containers.image",
+      "Name": "Image Manager",
+      "Tooltip": "Search Docker Hub, pull images, manage local images, prune unused",
+      "Icon": "imgs/action-status",
+      "States": [
+        {
+          "Image": "imgs/action-status",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/image-pi.html",
+      "SupportedInMultiActions": true
     }
   ]
 }

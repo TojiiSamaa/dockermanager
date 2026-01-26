@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Docker Image Settings</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #2D2D2D;
+      color: #E8E8E8;
+      font-size: 12px;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      background: #1E1E1E;
+      color: #E8E8E8;
+      font-size: 12px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #0db7ed;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-config {
+      background: linear-gradient(135deg, #0db7ed 0%, #0a9fd4 100%);
+      color: white;
+      margin-bottom: 16px;
+    }
+    .btn-config:hover {
+      filter: brightness(1.1);
+    }
+    .btn-secondary {
+      background: #3C3C3C;
+      color: #E8E8E8;
+    }
+    .btn-secondary:hover {
+      background: #4C4C4C;
+    }
+    .btn-danger {
+      background: #8B0000;
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #A00000;
+    }
+    .btn-small {
+      width: auto;
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+
+    .image-list {
+      max-height: 180px;
+      overflow-y: auto;
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .image-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+    }
+    .image-item:hover { background: #333; }
+    .image-item:last-child { border-bottom: none; }
+    .image-item.selected { background: rgba(13,183,237,0.2); }
+    .image-name { font-weight: 500; }
+    .image-desc { font-size: 10px; color: #888; margin-top: 2px; }
+    .image-meta {
+      font-size: 10px;
+      color: #666;
+      margin-top: 4px;
+      display: flex;
+      gap: 12px;
+    }
+    .image-official {
+      background: #0db7ed;
+      color: white;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+    }
+
+    .tag-list {
+      max-height: 150px;
+      overflow-y: auto;
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .tag-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tag-item:hover { background: #333; }
+    .tag-item:last-child { border-bottom: none; }
+    .tag-item.selected { background: rgba(13,183,237,0.2); }
+    .tag-name { font-weight: 500; }
+    .tag-size { font-size: 10px; color: #888; }
+
+    .local-image-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .local-image-item:last-child { border-bottom: none; }
+    .local-image-info { flex: 1; }
+    .local-image-name { font-weight: 500; font-size: 11px; }
+    .local-image-meta { font-size: 10px; color: #666; }
+    .local-image-actions { display: flex; gap: 4px; }
+    .in-use-badge {
+      background: #4CAF50;
+      color: white;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+    }
+
+    .disk-usage {
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+    .disk-usage-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 11px;
+    }
+    .disk-usage-total {
+      border-top: 1px solid #3C3C3C;
+      margin-top: 8px;
+      padding-top: 8px;
+      font-weight: 500;
+    }
+
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-top: 12px;
+      text-align: center;
+    }
+    .status.info { background: rgba(33,150,243,0.2); color: #2196F3; }
+    .status.error { background: rgba(244,67,54,0.2); color: #F44336; }
+    .status.success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+
+    .hidden { display: none; }
+
+    .divider {
+      height: 1px;
+      background: #3C3C3C;
+      margin: 16px 0;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      font-size: 11px;
+      color: #aaa;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      flex: 1;
+      padding: 8px;
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 11px;
+    }
+    .tab:hover { background: #333; }
+    .tab.active { background: #0db7ed; border-color: #0db7ed; }
+  </style>
+</head>
+<body>
+  <!-- Server Config Button -->
+  <button class="btn btn-config" id="openConfig">
+    Configure Server Connection
+  </button>
+
+  <div class="divider"></div>
+
+  <!-- Action Type -->
+  <div class="section">
+    <div class="section-title">Action Type</div>
+
+    <div class="form-group">
+      <label class="form-label">On Button Press</label>
+      <select id="actionType">
+        <option value="pull">Pull Image</option>
+        <option value="remove">Remove Image</option>
+        <option value="prune">Prune Dangling Images</option>
+        <option value="prune-all">Prune All Unused Images</option>
+        <option value="system-prune">System Prune</option>
+        <option value="status">Show Disk Usage</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Long Press Action</label>
+      <select id="longPressAction">
+        <option value="none">None</option>
+        <option value="prune">Prune Dangling</option>
+        <option value="remove">Remove Image</option>
+        <option value="pull-latest">Pull Latest Tag</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Pull Image Section -->
+  <div class="section" id="pullSection">
+    <div class="section-title">Pull Image from Docker Hub</div>
+
+    <div class="form-group">
+      <label class="form-label">Search Docker Hub</label>
+      <input type="text" id="hubSearch" placeholder="nginx, postgres, redis...">
+    </div>
+
+    <div id="hubImageList" class="image-list hidden"></div>
+
+    <div class="form-group" style="margin-top: 12px;">
+      <label class="form-label">Image Name</label>
+      <input type="text" id="imageName" placeholder="nginx, library/postgres, linuxserver/plex">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tag</label>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="imageTag" placeholder="latest" value="latest" style="flex: 1;">
+        <button class="btn btn-secondary btn-small" id="loadTags">Load Tags</button>
+      </div>
+    </div>
+
+    <div id="tagList" class="tag-list hidden"></div>
+
+    <button class="btn btn-secondary" id="pullNow" style="margin-top: 12px;">
+      Pull Image Now
+    </button>
+  </div>
+
+  <!-- Remove Image Section -->
+  <div class="section hidden" id="removeSection">
+    <div class="section-title">Remove Local Image</div>
+
+    <button class="btn btn-secondary" id="loadLocalImages">
+      Load Local Images
+    </button>
+
+    <div id="localImageList" class="image-list hidden" style="max-height: 250px;"></div>
+
+    <div class="form-group" style="margin-top: 12px;">
+      <label class="form-label">Target Image</label>
+      <input type="text" id="targetImageName" placeholder="nginx:latest or image ID">
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="forceRemove">
+      <label for="forceRemove">Force remove (even if in use)</label>
+    </div>
+  </div>
+
+  <!-- Prune Section -->
+  <div class="section hidden" id="pruneSection">
+    <div class="section-title">Cleanup</div>
+
+    <div id="diskUsage" class="disk-usage">
+      <div class="disk-usage-row">
+        <span>Images</span>
+        <span id="diskImages">-</span>
+      </div>
+      <div class="disk-usage-row">
+        <span>Containers</span>
+        <span id="diskContainers">-</span>
+      </div>
+      <div class="disk-usage-row">
+        <span>Volumes</span>
+        <span id="diskVolumes">-</span>
+      </div>
+      <div class="disk-usage-row">
+        <span>Build Cache</span>
+        <span id="diskBuildCache">-</span>
+      </div>
+      <div class="disk-usage-row disk-usage-total">
+        <span>Total</span>
+        <span id="diskTotal">-</span>
+      </div>
+    </div>
+
+    <button class="btn btn-secondary" id="refreshDiskUsage" style="margin-top: 12px;">
+      Refresh Disk Usage
+    </button>
+
+    <div class="checkbox-group" style="margin-top: 12px;" id="includeVolumesGroup">
+      <input type="checkbox" id="includeVolumes">
+      <label for="includeVolumes">Include volumes in system prune (DANGER)</label>
+    </div>
+
+    <button class="btn btn-danger" id="pruneNow" style="margin-top: 12px;">
+      Prune Now
+    </button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Display Settings -->
+  <div class="section">
+    <div class="section-title">Display</div>
+
+    <div class="form-group">
+      <label class="form-label">Display Name</label>
+      <input type="text" id="displayName" placeholder="Custom button label">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Refresh Interval (seconds)</label>
+      <input type="number" id="refreshInterval" value="30" min="10" max="300">
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="showTitle" checked>
+      <label for="showTitle">Show Title</label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Background Color</label>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="color" id="backgroundColor" value="#2a2a2a" style="width: 50px; height: 30px; padding: 0; border: 1px solid #444; cursor: pointer;">
+        <select id="backgroundColorPreset" style="flex: 1;">
+          <option value="">Custom</option>
+          <option value="#2a2a2a">Default Gray</option>
+          <option value="#1a1a2e">Dark Blue</option>
+          <option value="#1a2e1a">Dark Green</option>
+          <option value="#2e1a1a">Dark Red</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="status" class="status hidden"></div>
+
+  <script>
+    let websocket = null;
+    let uuid = null;
+    let actionInfo = null;
+    let settings = {};
+    let hubImages = [];
+    let localImages = [];
+    let searchTimeout = null;
+
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+      uuid = inUUID;
+      actionInfo = JSON.parse(inActionInfo);
+      settings = actionInfo.payload.settings || {};
+
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+
+      websocket.onopen = function() {
+        websocket.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inUUID
+        }));
+
+        websocket.send(JSON.stringify({
+          event: 'getGlobalSettings',
+          context: inUUID
+        }));
+
+        loadSettings();
+        updateSectionVisibility();
+      };
+
+      websocket.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+
+        if (data.event === 'didReceiveSettings') {
+          settings = data.payload.settings || {};
+          loadSettings();
+        }
+
+        if (data.event === 'sendToPropertyInspector') {
+          handlePluginMessage(data.payload);
+        }
+      };
+    }
+
+    function loadSettings() {
+      document.getElementById('actionType').value = settings.actionType || 'pull';
+      document.getElementById('longPressAction').value = settings.longPressAction || 'none';
+      document.getElementById('imageName').value = settings.imageName || '';
+      document.getElementById('imageTag').value = settings.imageTag || 'latest';
+      document.getElementById('targetImageName').value = settings.targetImageName || '';
+      document.getElementById('forceRemove').checked = settings.forceRemove || false;
+      document.getElementById('includeVolumes').checked = settings.includeVolumes || false;
+      document.getElementById('displayName').value = settings.displayName || '';
+      document.getElementById('refreshInterval').value = settings.refreshInterval || 30;
+      document.getElementById('showTitle').checked = settings.showTitle !== false;
+      document.getElementById('backgroundColor').value = settings.backgroundColor || '#2a2a2a';
+      document.getElementById('backgroundColorPreset').value = settings.backgroundColor || '';
+
+      updateSectionVisibility();
+    }
+
+    function saveSettings() {
+      const bgColor = document.getElementById('backgroundColor').value;
+
+      settings = {
+        actionType: document.getElementById('actionType').value,
+        longPressAction: document.getElementById('longPressAction').value,
+        imageName: document.getElementById('imageName').value,
+        imageTag: document.getElementById('imageTag').value,
+        targetImageId: settings.targetImageId || '',
+        targetImageName: document.getElementById('targetImageName').value,
+        forceRemove: document.getElementById('forceRemove').checked,
+        includeVolumes: document.getElementById('includeVolumes').checked,
+        displayName: document.getElementById('displayName').value,
+        refreshInterval: parseInt(document.getElementById('refreshInterval').value) || 30,
+        showTitle: document.getElementById('showTitle').checked,
+        backgroundColor: bgColor !== '#2a2a2a' ? bgColor : ''
+      };
+
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'setSettings',
+          context: uuid,
+          payload: settings
+        }));
+      }
+    }
+
+    function sendToPlugin(payload) {
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'sendToPlugin',
+          action: actionInfo.action,
+          context: uuid,
+          payload: payload
+        }));
+      }
+    }
+
+    function updateSectionVisibility() {
+      const actionType = document.getElementById('actionType').value;
+
+      document.getElementById('pullSection').classList.toggle('hidden', !['pull'].includes(actionType));
+      document.getElementById('removeSection').classList.toggle('hidden', actionType !== 'remove');
+      document.getElementById('pruneSection').classList.toggle('hidden', !['prune', 'prune-all', 'system-prune', 'status'].includes(actionType));
+      document.getElementById('includeVolumesGroup').classList.toggle('hidden', actionType !== 'system-prune');
+
+      // Load disk usage for prune/status actions
+      if (['prune', 'prune-all', 'system-prune', 'status'].includes(actionType)) {
+        sendToPlugin({ action: 'getDiskUsage' });
+      }
+    }
+
+    function searchDockerHub(query) {
+      if (query.length < 2) {
+        document.getElementById('hubImageList').classList.add('hidden');
+        return;
+      }
+
+      showStatus('Searching Docker Hub...', 'info');
+      sendToPlugin({ action: 'searchDockerHub', query: query });
+    }
+
+    function loadImageTags() {
+      const imageName = document.getElementById('imageName').value;
+      if (!imageName) {
+        showStatus('Enter an image name first', 'error');
+        return;
+      }
+
+      showStatus('Loading tags...', 'info');
+      sendToPlugin({ action: 'getImageTags', imageName: imageName });
+    }
+
+    function loadLocalImages() {
+      showStatus('Loading local images...', 'info');
+      sendToPlugin({ action: 'listLocalImages' });
+    }
+
+    function pullImage() {
+      const imageName = document.getElementById('imageName').value;
+      const tag = document.getElementById('imageTag').value || 'latest';
+
+      if (!imageName) {
+        showStatus('Enter an image name', 'error');
+        return;
+      }
+
+      showStatus('Pulling ' + imageName + ':' + tag + '...', 'info');
+      sendToPlugin({ action: 'pullImage', imageName: imageName, tag: tag });
+    }
+
+    function removeImage(imageId) {
+      const force = document.getElementById('forceRemove').checked;
+      showStatus('Removing image...', 'info');
+      sendToPlugin({ action: 'removeImage', imageId: imageId, force: force });
+    }
+
+    function pruneNow() {
+      const actionType = document.getElementById('actionType').value;
+      const includeVolumes = document.getElementById('includeVolumes').checked;
+
+      showStatus('Pruning...', 'info');
+      sendToPlugin({ action: 'systemPrune', includeVolumes: includeVolumes });
+    }
+
+    function handlePluginMessage(payload) {
+      if (payload.hubImages) {
+        hubImages = payload.hubImages;
+        displayHubImages(hubImages);
+        hideStatus();
+      }
+
+      if (payload.tags) {
+        displayTags(payload.tags);
+        hideStatus();
+      }
+
+      if (payload.localImages) {
+        localImages = payload.localImages;
+        displayLocalImages(localImages);
+        hideStatus();
+      }
+
+      if (payload.diskUsage) {
+        displayDiskUsage(payload.diskUsage);
+      }
+
+      if (payload.pullResult) {
+        if (payload.pullResult.success) {
+          showStatus('Successfully pulled ' + payload.pullResult.imageName + ':' + payload.pullResult.tag, 'success');
+        } else {
+          showStatus('Pull failed: ' + payload.pullResult.error, 'error');
+        }
+      }
+
+      if (payload.removeResult) {
+        if (payload.removeResult.success) {
+          showStatus('Image removed successfully', 'success');
+          loadLocalImages(); // Refresh list
+        } else {
+          showStatus('Remove failed: ' + payload.removeResult.error, 'error');
+        }
+      }
+
+      if (payload.pruneResult) {
+        if (payload.pruneResult.success) {
+          showStatus('Pruned! Saved ' + payload.pruneResult.spaceSaved, 'success');
+          sendToPlugin({ action: 'getDiskUsage' }); // Refresh
+        } else {
+          showStatus('Prune failed', 'error');
+        }
+      }
+
+      if (payload.error) {
+        showStatus(payload.error, 'error');
+      }
+    }
+
+    function displayHubImages(images) {
+      const list = document.getElementById('hubImageList');
+      list.innerHTML = '';
+      list.classList.remove('hidden');
+
+      if (images.length === 0) {
+        list.innerHTML = '<div style="padding: 12px; color: #666; text-align: center;">No images found</div>';
+        return;
+      }
+
+      images.forEach(img => {
+        const item = document.createElement('div');
+        item.className = 'image-item';
+        item.innerHTML = `
+          <div class="image-name">
+            ${img.name}
+            ${img.isOfficial ? '<span class="image-official">Official</span>' : ''}
+          </div>
+          <div class="image-desc">${img.description}</div>
+          <div class="image-meta">
+            <span>${img.stars} stars</span>
+            <span>${img.pulls} pulls</span>
+          </div>
+        `;
+        item.onclick = () => {
+          document.getElementById('imageName').value = img.fullName;
+          document.querySelectorAll('#hubImageList .image-item').forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          saveSettings();
+          loadImageTags();
+        };
+        list.appendChild(item);
+      });
+    }
+
+    function displayTags(tags) {
+      const list = document.getElementById('tagList');
+      list.innerHTML = '';
+      list.classList.remove('hidden');
+
+      if (tags.length === 0) {
+        list.innerHTML = '<div style="padding: 12px; color: #666; text-align: center;">No tags found</div>';
+        return;
+      }
+
+      tags.slice(0, 20).forEach(tag => {
+        const item = document.createElement('div');
+        item.className = 'tag-item' + (tag.name === document.getElementById('imageTag').value ? ' selected' : '');
+        item.innerHTML = `
+          <span class="tag-name">${tag.name}</span>
+          <span class="tag-size">${tag.size}</span>
+        `;
+        item.onclick = () => {
+          document.getElementById('imageTag').value = tag.name;
+          document.querySelectorAll('#tagList .tag-item').forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          saveSettings();
+        };
+        list.appendChild(item);
+      });
+    }
+
+    function displayLocalImages(images) {
+      const list = document.getElementById('localImageList');
+      list.innerHTML = '';
+      list.classList.remove('hidden');
+
+      if (images.length === 0) {
+        list.innerHTML = '<div style="padding: 12px; color: #666; text-align: center;">No local images found</div>';
+        return;
+      }
+
+      images.forEach(img => {
+        const item = document.createElement('div');
+        item.className = 'local-image-item';
+        item.innerHTML = `
+          <div class="local-image-info">
+            <div class="local-image-name">
+              ${img.fullName}
+              ${img.inUse ? '<span class="in-use-badge">In Use</span>' : ''}
+            </div>
+            <div class="local-image-meta">${img.id} - ${img.size}</div>
+          </div>
+          <div class="local-image-actions">
+            <button class="btn btn-secondary btn-small" onclick="selectLocalImage('${img.id}', '${img.fullName}')">Select</button>
+            ${!img.inUse ? `<button class="btn btn-danger btn-small" onclick="removeImage('${img.id}')">Remove</button>` : ''}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function selectLocalImage(id, name) {
+      settings.targetImageId = id;
+      document.getElementById('targetImageName').value = name;
+      saveSettings();
+    }
+
+    function displayDiskUsage(usage) {
+      document.getElementById('diskImages').textContent = usage.images.count + ' (' + usage.images.size + ')';
+      document.getElementById('diskContainers').textContent = usage.containers.count + ' (' + usage.containers.size + ')';
+      document.getElementById('diskVolumes').textContent = usage.volumes.count + ' (' + usage.volumes.size + ')';
+      document.getElementById('diskBuildCache').textContent = usage.buildCache.size;
+      document.getElementById('diskTotal').textContent = usage.total;
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+      status.classList.remove('hidden');
+    }
+
+    function hideStatus() {
+      document.getElementById('status').classList.add('hidden');
+    }
+
+    // Config window
+    let configWindow = null;
+
+    document.getElementById('openConfig').onclick = function() {
+      const width = 500;
+      const height = 650;
+      const left = (screen.width - width) / 2;
+      const top = (screen.height - height) / 2;
+      configWindow = window.open(
+        'plugin-config.html',
+        'ServerConfig',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      );
+    };
+
+    // Event listeners
+    document.getElementById('actionType').onchange = function() {
+      updateSectionVisibility();
+      saveSettings();
+    };
+
+    document.getElementById('hubSearch').oninput = function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => searchDockerHub(this.value), 300);
+    };
+
+    document.getElementById('loadTags').onclick = loadImageTags;
+    document.getElementById('pullNow').onclick = pullImage;
+    document.getElementById('loadLocalImages').onclick = loadLocalImages;
+    document.getElementById('refreshDiskUsage').onclick = function() {
+      sendToPlugin({ action: 'getDiskUsage' });
+    };
+    document.getElementById('pruneNow').onclick = pruneNow;
+
+    // Save on change
+    ['imageName', 'imageTag', 'targetImageName', 'displayName', 'refreshInterval', 'longPressAction'].forEach(id => {
+      document.getElementById(id).onchange = saveSettings;
+    });
+
+    ['forceRemove', 'includeVolumes', 'showTitle'].forEach(id => {
+      document.getElementById(id).onchange = saveSettings;
+    });
+
+    document.getElementById('backgroundColor').onchange = saveSettings;
+    document.getElementById('backgroundColorPreset').onchange = function() {
+      if (this.value) {
+        document.getElementById('backgroundColor').value = this.value;
+        saveSettings();
+      }
+    };
+  </script>
+</body>
+</html>

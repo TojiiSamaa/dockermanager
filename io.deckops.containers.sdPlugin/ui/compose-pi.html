@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Docker Compose Settings</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #2D2D2D;
+      color: #E8E8E8;
+      font-size: 12px;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      background: #1E1E1E;
+      color: #E8E8E8;
+      font-size: 12px;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #0db7ed;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-config {
+      background: linear-gradient(135deg, #0db7ed 0%, #0a9fd4 100%);
+      color: white;
+      margin-bottom: 16px;
+    }
+    .btn-config:hover {
+      filter: brightness(1.1);
+    }
+    .btn-secondary {
+      background: #3C3C3C;
+      color: #E8E8E8;
+    }
+    .btn-secondary:hover {
+      background: #4C4C4C;
+    }
+    .btn-small {
+      width: auto;
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+
+    .compose-list {
+      max-height: 200px;
+      overflow-y: auto;
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .compose-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+    }
+    .compose-item:hover { background: #333; }
+    .compose-item:last-child { border-bottom: none; }
+    .compose-item.selected { background: rgba(13,183,237,0.2); }
+    .compose-name { font-weight: 500; margin-bottom: 2px; }
+    .compose-path { font-size: 10px; color: #666; word-break: break-all; }
+    .compose-services { font-size: 10px; color: #888; margin-top: 4px; }
+
+    .stack-status {
+      padding: 8px 12px;
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+    .stack-status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .stack-status-indicator {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+    }
+    .stack-status-indicator.running { background: #1E4620; color: #4CAF50; }
+    .stack-status-indicator.partial { background: #4A4A1E; color: #FFD700; }
+    .stack-status-indicator.stopped { background: #4A1E1E; color: #F44336; }
+    .service-list {
+      font-size: 10px;
+      color: #888;
+    }
+
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-top: 12px;
+      text-align: center;
+    }
+    .status.info { background: rgba(33,150,243,0.2); color: #2196F3; }
+    .status.error { background: rgba(244,67,54,0.2); color: #F44336; }
+    .status.success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+
+    .hidden { display: none; }
+
+    .divider {
+      height: 1px;
+      background: #3C3C3C;
+      margin: 16px 0;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      font-size: 11px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <!-- Server Config Button -->
+  <button class="btn btn-config" id="openConfig">
+    Configure Server Connection
+  </button>
+
+  <div class="divider"></div>
+
+  <!-- Compose File Discovery -->
+  <div class="section">
+    <div class="section-title">Docker Compose Stack</div>
+
+    <div class="form-group">
+      <label class="form-label">Search Paths (one per line)</label>
+      <textarea id="searchPaths" rows="2" placeholder="/mnt/user/appdata&#10;/opt/stacks">/mnt/user/appdata
+/opt
+/home</textarea>
+    </div>
+
+    <button class="btn btn-secondary" id="discoverComposeFiles">
+      Discover Compose Files
+    </button>
+
+    <div class="form-group" style="margin-top: 8px;">
+      <input type="text" id="composeSearch" placeholder="Search compose files...">
+    </div>
+
+    <div id="composeList" class="compose-list hidden"></div>
+
+    <div class="form-group" style="margin-top: 12px;">
+      <label class="form-label">Selected Compose File</label>
+      <input type="text" id="composePath" placeholder="/path/to/docker-compose.yml" readonly>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Project Name</label>
+      <input type="text" id="projectName" placeholder="Auto-detected from folder">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Display Name (optional)</label>
+      <input type="text" id="displayName" placeholder="Custom button label">
+    </div>
+
+    <div id="stackStatus" class="stack-status hidden">
+      <div class="stack-status-header">
+        <span>Stack Status</span>
+        <span id="stackStatusIndicator" class="stack-status-indicator stopped">Unknown</span>
+      </div>
+      <div id="serviceList" class="service-list"></div>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Action Settings -->
+  <div class="section">
+    <div class="section-title">Action</div>
+
+    <div class="form-group">
+      <label class="form-label">On Button Press</label>
+      <select id="actionType">
+        <option value="toggle">Toggle (Up/Down)</option>
+        <option value="up">Up (Start)</option>
+        <option value="down">Down (Stop)</option>
+        <option value="restart">Restart</option>
+        <option value="build">Build</option>
+        <option value="pull">Pull Images</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Target Service (optional)</label>
+      <select id="targetService">
+        <option value="">All Services</option>
+      </select>
+      <div style="font-size: 10px; color: #666; margin-top: 4px;">Leave empty to target entire stack</div>
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="buildOnUp">
+      <label for="buildOnUp">Build images on Up</label>
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="forceRecreate">
+      <label for="forceRecreate">Force recreate containers</label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Long Press Action</label>
+      <select id="longPressAction">
+        <option value="none">None</option>
+        <option value="down">Down (Stop)</option>
+        <option value="restart">Restart</option>
+        <option value="build">Build</option>
+        <option value="logs">View Logs</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Logs Settings -->
+  <div class="section">
+    <div class="section-title">Logs</div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="openLogsOnBuild">
+      <label for="openLogsOnBuild">Open logs after Build</label>
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="openLogsOnUp">
+      <label for="openLogsOnUp">Open logs after Up</label>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Display Settings -->
+  <div class="section">
+    <div class="section-title">Display</div>
+
+    <div class="form-group">
+      <label class="form-label">Refresh Interval (seconds)</label>
+      <input type="number" id="refreshInterval" value="10" min="5" max="300">
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="showTitle" checked>
+      <label for="showTitle">Show Title</label>
+    </div>
+
+    <!-- Background Color -->
+    <div class="form-group">
+      <label class="form-label">Background Color</label>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="color" id="backgroundColor" value="#2a2a2a" style="width: 50px; height: 30px; padding: 0; border: 1px solid #444; cursor: pointer;">
+        <select id="backgroundColorPreset" style="flex: 1;">
+          <option value="">Custom</option>
+          <option value="#2a2a2a">Default Gray</option>
+          <option value="#1a1a2e">Dark Blue</option>
+          <option value="#1a2e1a">Dark Green</option>
+          <option value="#2e1a1a">Dark Red</option>
+          <option value="#2e2a1a">Dark Yellow</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let websocket = null;
+    let uuid = null;
+    let actionInfo = null;
+    let settings = {};
+    let composeFiles = [];
+
+    function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+      uuid = inUUID;
+      actionInfo = JSON.parse(inActionInfo);
+      settings = actionInfo.payload.settings || {};
+
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+
+      websocket.onopen = function() {
+        websocket.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inUUID
+        }));
+
+        websocket.send(JSON.stringify({
+          event: 'getGlobalSettings',
+          context: inUUID
+        }));
+
+        loadSettings();
+      };
+
+      websocket.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+
+        if (data.event === 'didReceiveSettings') {
+          settings = data.payload.settings || {};
+          loadSettings();
+        }
+
+        if (data.event === 'sendToPropertyInspector') {
+          handlePluginMessage(data.payload);
+        }
+      };
+    }
+
+    function loadSettings() {
+      document.getElementById('composePath').value = settings.composePath || '';
+      document.getElementById('projectName').value = settings.projectName || '';
+      document.getElementById('displayName').value = settings.displayName || '';
+      document.getElementById('actionType').value = settings.actionType || 'toggle';
+      document.getElementById('longPressAction').value = settings.longPressAction || 'none';
+      document.getElementById('buildOnUp').checked = settings.buildOnUp || false;
+      document.getElementById('forceRecreate').checked = settings.forceRecreate || false;
+      document.getElementById('openLogsOnBuild').checked = settings.openLogsOnBuild || false;
+      document.getElementById('openLogsOnUp').checked = settings.openLogsOnUp || false;
+      document.getElementById('refreshInterval').value = settings.refreshInterval || 10;
+      document.getElementById('showTitle').checked = settings.showTitle !== false;
+      document.getElementById('backgroundColor').value = settings.backgroundColor || '#2a2a2a';
+      document.getElementById('backgroundColorPreset').value = settings.backgroundColor || '';
+
+      if (settings.searchPaths && settings.searchPaths.length) {
+        document.getElementById('searchPaths').value = settings.searchPaths.join('\n');
+      }
+
+      // Request stack status if we have a compose path
+      if (settings.composePath) {
+        requestStackStatus();
+      }
+    }
+
+    function saveSettings() {
+      const searchPathsText = document.getElementById('searchPaths').value;
+      const searchPaths = searchPathsText.split('\n').map(p => p.trim()).filter(p => p);
+
+      const bgColor = document.getElementById('backgroundColor').value;
+
+      settings = {
+        composePath: document.getElementById('composePath').value,
+        projectName: document.getElementById('projectName').value,
+        displayName: document.getElementById('displayName').value,
+        actionType: document.getElementById('actionType').value,
+        targetService: document.getElementById('targetService').value,
+        longPressAction: document.getElementById('longPressAction').value,
+        buildOnUp: document.getElementById('buildOnUp').checked,
+        forceRecreate: document.getElementById('forceRecreate').checked,
+        openLogsOnBuild: document.getElementById('openLogsOnBuild').checked,
+        openLogsOnUp: document.getElementById('openLogsOnUp').checked,
+        refreshInterval: parseInt(document.getElementById('refreshInterval').value) || 10,
+        showTitle: document.getElementById('showTitle').checked,
+        backgroundColor: bgColor !== '#2a2a2a' ? bgColor : '',
+        searchPaths: searchPaths
+      };
+
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'setSettings',
+          context: uuid,
+          payload: settings
+        }));
+      }
+    }
+
+    function sendToPlugin(payload) {
+      if (websocket && websocket.readyState === 1) {
+        websocket.send(JSON.stringify({
+          event: 'sendToPlugin',
+          action: actionInfo.action,
+          context: uuid,
+          payload: payload
+        }));
+      }
+    }
+
+    function discoverComposeFiles() {
+      const searchPathsText = document.getElementById('searchPaths').value;
+      const searchPaths = searchPathsText.split('\n').map(p => p.trim()).filter(p => p);
+
+      showStatus('Discovering compose files...', 'info');
+      sendToPlugin({ action: 'discoverComposeFiles', searchPaths: searchPaths });
+    }
+
+    function requestStackStatus() {
+      sendToPlugin({ action: 'getStackStatus' });
+    }
+
+    function handlePluginMessage(payload) {
+      if (payload.composeFiles) {
+        composeFiles = payload.composeFiles;
+        displayComposeFiles(composeFiles);
+        showStatus('Found ' + composeFiles.length + ' compose files', 'success');
+      }
+
+      if (payload.stackStatus) {
+        displayStackStatus(payload.stackStatus);
+      }
+
+      if (payload.error) {
+        showStatus(payload.error, 'error');
+      }
+    }
+
+    function displayComposeFiles(files) {
+      const list = document.getElementById('composeList');
+      list.innerHTML = '';
+      list.classList.remove('hidden');
+
+      if (files.length === 0) {
+        list.innerHTML = '<div style="padding: 12px; color: #666; text-align: center;">No compose files found</div>';
+        return;
+      }
+
+      files.forEach(file => {
+        const item = document.createElement('div');
+        item.className = 'compose-item' + (file.path === settings.composePath ? ' selected' : '');
+        item.innerHTML = `
+          <div class="compose-name">${file.projectName}</div>
+          <div class="compose-path">${file.path}</div>
+          <div class="compose-services">${file.servicesCount} service${file.servicesCount !== 1 ? 's' : ''}: ${file.services.join(', ')}</div>
+        `;
+        item.onclick = () => selectComposeFile(file);
+        list.appendChild(item);
+      });
+    }
+
+    function selectComposeFile(file) {
+      document.getElementById('composePath').value = file.path;
+      document.getElementById('projectName').value = file.projectName;
+
+      // Update service dropdown
+      const serviceSelect = document.getElementById('targetService');
+      serviceSelect.innerHTML = '<option value="">All Services</option>';
+      file.services.forEach(service => {
+        const option = document.createElement('option');
+        option.value = service;
+        option.textContent = service;
+        serviceSelect.appendChild(option);
+      });
+
+      // Update selected state
+      document.querySelectorAll('.compose-item').forEach(item => item.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+
+      saveSettings();
+      requestStackStatus();
+    }
+
+    function displayStackStatus(status) {
+      const statusDiv = document.getElementById('stackStatus');
+      const indicator = document.getElementById('stackStatusIndicator');
+      const serviceList = document.getElementById('serviceList');
+
+      statusDiv.classList.remove('hidden');
+
+      indicator.className = 'stack-status-indicator ' + status.status;
+      indicator.textContent = status.status.charAt(0).toUpperCase() + status.status.slice(1);
+
+      if (status.services && status.services.length > 0) {
+        serviceList.innerHTML = status.services.map(s =>
+          `<div style="display: flex; justify-content: space-between; padding: 2px 0;">
+            <span>${s.name}</span>
+            <span style="color: ${s.status === 'running' ? '#4CAF50' : '#F44336'}">${s.status}</span>
+          </div>`
+        ).join('');
+      } else {
+        serviceList.innerHTML = '<div style="color: #666;">No services running</div>';
+      }
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+      status.classList.remove('hidden');
+    }
+
+    // Config window
+    let configWindow = null;
+
+    document.getElementById('openConfig').onclick = function() {
+      const width = 500;
+      const height = 650;
+      const left = (screen.width - width) / 2;
+      const top = (screen.height - height) / 2;
+      configWindow = window.open(
+        'plugin-config.html',
+        'ServerConfig',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      );
+    };
+
+    // Event listeners
+    document.getElementById('discoverComposeFiles').onclick = discoverComposeFiles;
+
+    document.getElementById('composeSearch').oninput = function() {
+      const query = this.value.toLowerCase();
+      const filtered = composeFiles.filter(f =>
+        f.projectName.toLowerCase().includes(query) ||
+        f.path.toLowerCase().includes(query)
+      );
+      displayComposeFiles(filtered);
+    };
+
+    // Save on change
+    ['composePath', 'projectName', 'displayName', 'actionType', 'targetService',
+     'longPressAction', 'refreshInterval', 'searchPaths'].forEach(id => {
+      document.getElementById(id).onchange = saveSettings;
+    });
+
+    ['buildOnUp', 'forceRecreate', 'openLogsOnBuild', 'openLogsOnUp', 'showTitle'].forEach(id => {
+      document.getElementById(id).onchange = saveSettings;
+    });
+
+    document.getElementById('backgroundColor').onchange = saveSettings;
+    document.getElementById('backgroundColorPreset').onchange = function() {
+      if (this.value) {
+        document.getElementById('backgroundColor').value = this.value;
+        saveSettings();
+      }
+    };
+  </script>
+</body>
+</html>
