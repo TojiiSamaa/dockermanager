@@ -3,9 +3,8 @@ import { dockerService, ContainerHealth } from "../services/docker-service";
 import { globalSettings } from "../services/settings-manager";
 import { iconGenerator, HealthState } from "../services/icon-generator";
 import { pluginLogger } from "./debug-logs";
+import { logServerManager } from "../services/log-server";
 import { exec } from "child_process";
-import * as path from "path";
-import * as fs from "fs";
 
 interface PIMessage {
   action?: string;
@@ -19,6 +18,7 @@ interface LogsSettings {
   refreshInterval?: number;
   streamingMode?: boolean;
   streamingRefreshRate?: number; // in seconds
+  windowFormat?: "small" | "full"; // Window format option
   // Icon settings (same as toggle)
   iconSource?: "default" | "file" | "url";
   iconUrl?: string;
@@ -79,9 +79,10 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
       containerId,
       containerName,
       displayName,
-      logLines = 100,
+      logLines = 200,
       streamingMode = true,
-      streamingRefreshRate = 2
+      streamingRefreshRate = 2,
+      windowFormat = "full"
     } = ev.payload.settings;
     const identifier = containerId || containerName;
 
@@ -101,396 +102,42 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
         }
       }
 
-      // Get logs
-      const logs = await dockerService.getContainerLogs(identifier, logLines);
-
-      // Get server config for streaming
-      const serverConfig = globalSettings.getServerConfig();
-
-      // Open logs in a new window with streaming support
-      this.openLogsWindow(
-        displayName || identifier,
-        logs,
+      // Create or get log server
+      const serverResult = await logServerManager.createServer(
         identifier,
-        streamingMode,
+        displayName || identifier,
+        logLines,
         streamingRefreshRate,
-        serverConfig
+        windowFormat
       );
 
+      if (!serverResult) {
+        pluginLogger.error("Failed to create log server", "logs");
+        return;
+      }
+
+      pluginLogger.info(`Opening logs for ${displayName || identifier} at ${serverResult.url}`, "logs");
+
+      // Open the browser to the log server URL
+      this.openBrowser(serverResult.url);
+
     } catch (error) {
-      pluginLogger.error(`Failed to get logs: ${error instanceof Error ? error.message : "Unknown error"}`, "logs");
+      pluginLogger.error(`Failed to open logs: ${error instanceof Error ? error.message : "Unknown error"}`, "logs");
     }
   }
 
-  private openLogsWindow(
-    containerName: string,
-    logs: string,
-    containerId: string,
-    streamingMode: boolean,
-    refreshRate: number,
-    serverConfig: any
-  ): void {
-    // Create a temp HTML file with the logs
-    const tempDir = process.env.TEMP || process.env.TMP || "/tmp";
-    const sessionId = Date.now().toString();
-    const tempFile = path.join(tempDir, `docker-logs-${sessionId}.html`);
+  private openBrowser(url: string): void {
+    const command = process.platform === "win32"
+      ? `start "" "${url}"`
+      : process.platform === "darwin"
+        ? `open "${url}"`
+        : `xdg-open "${url}"`;
 
-    // Create a data file for streaming updates
-    const dataFile = path.join(tempDir, `docker-logs-data-${sessionId}.json`);
-
-    const htmlContent = this.generateLogsHtml(
-      containerName,
-      logs,
-      containerId,
-      streamingMode,
-      refreshRate,
-      sessionId
-    );
-
-    // Write initial data file
-    fs.writeFileSync(dataFile, JSON.stringify({ logs, timestamp: Date.now() }));
-
-    fs.writeFile(tempFile, htmlContent, (err) => {
-      if (err) {
-        console.error("Failed to write temp logs file:", err);
-        return;
-      }
-
-      // Start background log fetching if streaming mode
-      if (streamingMode) {
-        this.startLogStreaming(containerId, dataFile, refreshRate, sessionId);
-      }
-
-      // Open in default browser
-      const command = process.platform === "win32"
-        ? `start "" "${tempFile}"`
-        : process.platform === "darwin"
-          ? `open "${tempFile}"`
-          : `xdg-open "${tempFile}"`;
-
-      exec(command, (error) => {
-        if (error) {
-          console.error("Failed to open logs window:", error);
-        }
-
-        // Clean up temp files after a longer delay (streaming needs them)
-        setTimeout(() => {
-          this.stopLogStreaming(sessionId);
-          fs.unlink(tempFile, () => {});
-          fs.unlink(dataFile, () => {});
-        }, streamingMode ? 3600000 : 60000); // 1 hour for streaming, 1 minute otherwise
-      });
-    });
-  }
-
-  private streamingIntervals: Map<string, NodeJS.Timeout> = new Map();
-
-  private startLogStreaming(containerId: string, dataFile: string, refreshRate: number, sessionId: string): void {
-    const intervalId = setInterval(async () => {
-      try {
-        if (!dockerService.isConnected()) {
-          return;
-        }
-        const logs = await dockerService.getContainerLogs(containerId, 200);
-        fs.writeFileSync(dataFile, JSON.stringify({ logs, timestamp: Date.now() }));
-      } catch (error) {
-        console.error("Streaming log fetch error:", error);
-      }
-    }, refreshRate * 1000);
-
-    this.streamingIntervals.set(sessionId, intervalId);
-  }
-
-  private stopLogStreaming(sessionId: string): void {
-    const intervalId = this.streamingIntervals.get(sessionId);
-    if (intervalId) {
-      clearInterval(intervalId);
-      this.streamingIntervals.delete(sessionId);
-    }
-  }
-
-  private generateLogsHtml(
-    containerName: string,
-    logs: string,
-    containerId: string,
-    streamingMode: boolean,
-    refreshRate: number,
-    sessionId: string
-  ): string {
-    const escapedName = containerName
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-
-    const tempDir = (process.env.TEMP || process.env.TMP || "/tmp").replace(/\\/g, "/");
-    const dataFileUrl = `file:///${tempDir}/docker-logs-data-${sessionId}.json`;
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Logs: ${escapedName}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
-      background: #1a1a2e;
-      color: #E8E8E8;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .header {
-      background: rgba(13,183,237,0.1);
-      border-bottom: 1px solid rgba(13,183,237,0.3);
-      padding: 12px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
-    }
-    .header h1 {
-      font-size: 14px;
-      font-weight: 600;
-      color: #0db7ed;
-    }
-    .container-name {
-      font-size: 14px;
-      color: #E8E8E8;
-      background: rgba(255,255,255,0.1);
-      padding: 4px 10px;
-      border-radius: 4px;
-      margin-left: 10px;
-    }
-    .header-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .btn {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      background: rgba(255,255,255,0.1);
-      color: #E8E8E8;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-    .btn:hover { background: rgba(255,255,255,0.15); }
-    .logs-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 16px;
-      background: #0d0d1a;
-    }
-    .logs-content {
-      white-space: pre-wrap;
-      word-break: break-all;
-      font-size: 11px;
-      line-height: 1.5;
-      color: #ccc;
-    }
-    .log-line { padding: 2px 0; }
-    .log-line:hover { background: rgba(255,255,255,0.05); }
-    .log-error { color: #F44336; }
-    .log-warn { color: #FF9800; }
-    .log-info { color: #2196F3; }
-    .status-bar {
-      background: rgba(0,0,0,0.5);
-      border-top: 1px solid rgba(255,255,255,0.1);
-      padding: 6px 16px;
-      font-size: 11px;
-      color: #666;
-      display: flex;
-      justify-content: space-between;
-    }
-    .search-container {
-      padding: 8px 16px;
-      background: rgba(0,0,0,0.3);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      display: none;
-    }
-    .search-container.show { display: block; }
-    .search-input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 4px;
-      background: rgba(0,0,0,0.3);
-      color: #E8E8E8;
-      font-size: 12px;
-    }
-    .search-input:focus { outline: none; border-color: #0db7ed; }
-    .btn.active { background: rgba(76,175,80,0.3); }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .live-indicator { animation: pulse 1.5s infinite; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div style="display: flex; align-items: center;">
-      <h1>Container Logs</h1>
-      <span class="container-name">${escapedName}</span>
-    </div>
-    <div class="header-actions">
-      <button class="btn" onclick="toggleSearch()">Search</button>
-      <button class="btn" onclick="toggleAutoScroll()" id="autoScrollBtn">${streamingMode ? "Auto-scroll: ON" : "Auto-scroll"}</button>
-      <button class="btn" onclick="scrollToBottom()">↓ Bottom</button>
-    </div>
-  </div>
-  <div class="search-container" id="searchContainer">
-    <input type="text" class="search-input" id="searchInput" placeholder="Search logs..." onkeyup="searchLogs(event)">
-  </div>
-  <div class="logs-container" id="logsContainer">
-    <div class="logs-content" id="logsContent"></div>
-  </div>
-  <div class="status-bar">
-    <span id="lineCount">0 lines</span>
-    <span id="streamStatus">${streamingMode ? `<span class="live-indicator" style="color:#4CAF50;">● LIVE</span> - Auto-refresh: ${refreshRate}s` : ""}</span>
-    <span id="lastUpdate">Updated: ${new Date().toLocaleTimeString()}</span>
-  </div>
-  <script>
-    const rawLogs = ${JSON.stringify(logs)};
-    const streamingMode = ${streamingMode};
-    const refreshRate = ${refreshRate * 1000};
-    const dataFileUrl = "${dataFileUrl}";
-    let currentLogs = rawLogs;
-    let autoScroll = true;
-
-    function init() {
-      displayLogs(rawLogs);
-      scrollToBottom();
-
-      if (streamingMode) {
-        startStreaming();
-      }
-    }
-
-    async function startStreaming() {
-      setInterval(async () => {
-        try {
-          const response = await fetch(dataFileUrl + '?t=' + Date.now());
-          if (response.ok) {
-            const data = await response.json();
-            if (data.logs !== currentLogs) {
-              currentLogs = data.logs;
-              const wasAtBottom = isScrolledToBottom();
-              displayLogs(currentLogs);
-              document.getElementById('lastUpdate').textContent = 'Updated: ' + new Date().toLocaleTimeString();
-              if (autoScroll && wasAtBottom) {
-                scrollToBottom();
-              }
-            }
-          }
-        } catch (e) {
-          console.log('Refresh failed, retrying...', e);
-        }
-      }, refreshRate);
-    }
-
-    function isScrolledToBottom() {
-      const container = document.getElementById('logsContainer');
-      return container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
-    }
-
-    function displayLogs(logs) {
-      const container = document.getElementById('logsContent');
-      const lines = logs.split('\\n');
-      let html = '';
-
-      lines.forEach(line => {
-        if (!line.trim()) return;
-        let className = 'log-line';
-        if (/error|fatal|exception|fail/i.test(line)) className += ' log-error';
-        else if (/warn|warning/i.test(line)) className += ' log-warn';
-        else if (/info/i.test(line)) className += ' log-info';
-
-        const escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        html += '<div class="' + className + '">' + escaped + '</div>';
-      });
-
-      container.innerHTML = html;
-      document.getElementById('lineCount').textContent = lines.filter(l => l.trim()).length + ' lines';
-    }
-
-    function scrollToBottom() {
-      const container = document.getElementById('logsContainer');
-      container.scrollTop = container.scrollHeight;
-    }
-
-    function toggleAutoScroll() {
-      autoScroll = !autoScroll;
-      const btn = document.getElementById('autoScrollBtn');
-      btn.textContent = autoScroll ? 'Auto-scroll: ON' : 'Auto-scroll: OFF';
-      btn.style.background = autoScroll ? 'rgba(76,175,80,0.3)' : 'rgba(255,255,255,0.1)';
-    }
-
-    function toggleSearch() {
-      const container = document.getElementById('searchContainer');
-      container.classList.toggle('show');
-      if (container.classList.contains('show')) {
-        document.getElementById('searchInput').focus();
-      }
-    }
-
-    function searchLogs(event) {
-      if (event.key === 'Escape') {
-        toggleSearch();
-        return;
-      }
-
-      const query = document.getElementById('searchInput').value;
-      if (!query) {
-        displayLogs(rawLogs);
-        return;
-      }
-
-      const container = document.getElementById('logsContent');
-      const lines = rawLogs.split('\\n');
-      let html = '';
-      const lowerQuery = query.toLowerCase();
-
-      lines.forEach(line => {
-        if (!line.trim()) return;
-        let className = 'log-line';
-        if (/error|fatal|exception|fail/i.test(line)) className += ' log-error';
-        else if (/warn|warning/i.test(line)) className += ' log-warn';
-        else if (/info/i.test(line)) className += ' log-info';
-
-        let escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-        // Highlight matches
-        const lowerLine = escaped.toLowerCase();
-        const idx = lowerLine.indexOf(lowerQuery);
-        if (idx !== -1) {
-          const before = escaped.substring(0, idx);
-          const match = escaped.substring(idx, idx + query.length);
-          const after = escaped.substring(idx + query.length);
-          escaped = before + '<mark style="background:#FFD700;color:#000;">' + match + '</mark>' + after;
-        }
-
-        html += '<div class="' + className + '">' + escaped + '</div>';
-      });
-
-      container.innerHTML = html;
-      const firstMatch = container.querySelector('mark');
-      if (firstMatch) firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.key === 'f') {
-        e.preventDefault();
-        toggleSearch();
+    exec(command, (error) => {
+      if (error) {
+        pluginLogger.error(`Failed to open browser: ${error.message}`, "logs");
       }
     });
-
-    init();
-  </script>
-</body>
-</html>`;
   }
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<LogsSettings>): Promise<void> {
@@ -621,7 +268,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
 
       // Update title (only if showTitle is true)
       if (showTitle) {
-        const shortTitle = containerName.length > 10 ? containerName.substring(0, 9) + "…" : containerName;
+        const shortTitle = containerName.length > 10 ? containerName.substring(0, 9) + "..." : containerName;
         await action.setTitle(shortTitle);
       } else {
         await action.setTitle("");

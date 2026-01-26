@@ -4,6 +4,7 @@ import { DockerLogsAction } from "./actions/docker-logs";
 import { DebugLogsAction, pluginLogger } from "./actions/debug-logs";
 import { globalSettings } from "./services/settings-manager";
 import { dockerService, ServerConfig } from "./services/docker-service";
+import { logServerManager } from "./services/log-server";
 
 // Configure logging
 streamDeck.logger.setLevel(LogLevel.DEBUG);
@@ -43,7 +44,7 @@ async function initialize() {
 // Listen for global settings changes
 streamDeck.settings.onDidReceiveGlobalSettings<{ serverConfig?: ServerConfig }>(async (ev) => {
   pluginLogger.info("Global settings received", "plugin");
-  pluginLogger.debug(`Settings: ${JSON.stringify(ev.settings)}`, "plugin");
+  // SECURITY: Never log full settings - they contain credentials
 
   // Update the globalSettings manager cache (don't save back to avoid loop)
   if (ev.settings?.serverConfig) {
@@ -68,6 +69,48 @@ streamDeck.settings.onDidReceiveGlobalSettings<{ serverConfig?: ServerConfig }>(
       pluginLogger.error(`Failed to reconnect with new settings: ${error instanceof Error ? error.message : "Unknown error"}`, "plugin");
     }
   }
+});
+
+// Cleanup function for graceful shutdown
+async function cleanup() {
+  pluginLogger.info("Plugin shutting down, cleaning up resources...", "plugin");
+
+  try {
+    // Destroy all log servers
+    await logServerManager.destroyAllServers();
+    pluginLogger.info("Log servers cleaned up", "plugin");
+
+    // Disconnect from Docker
+    if (dockerService.isConnected()) {
+      await dockerService.disconnect();
+      pluginLogger.info("Disconnected from Docker server", "plugin");
+    }
+  } catch (error) {
+    pluginLogger.error(`Cleanup error: ${error instanceof Error ? error.message : "Unknown error"}`, "plugin");
+  }
+}
+
+// Handle process termination signals
+process.on("SIGINT", async () => {
+  await cleanup();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  await cleanup();
+  process.exit(0);
+});
+
+process.on("exit", () => {
+  // Synchronous cleanup if needed (limited)
+  pluginLogger.info("Plugin process exiting", "plugin");
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", async (error) => {
+  pluginLogger.error(`Uncaught exception: ${error.message}`, "plugin");
+  await cleanup();
+  process.exit(1);
 });
 
 // Start the plugin and initialize

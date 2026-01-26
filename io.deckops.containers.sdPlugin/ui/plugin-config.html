@@ -426,7 +426,7 @@
       }
     });
 
-    // Listen for test results from Property Inspector
+    // Listen for messages from Property Inspector
     window.addEventListener('message', (event) => {
       if (event.data.type === 'testResult') {
         if (event.data.status === 'success') {
@@ -436,6 +436,10 @@
         } else {
           showStatus(event.data.message, 'error');
         }
+      }
+      // Handle settings response from parent window
+      if (event.data.type === 'settingsData') {
+        applySettings(event.data.settings);
       }
     });
 
@@ -463,40 +467,44 @@
 
     function saveSettings() {
       const settings = getSettings();
-      localStorage.setItem('dockerManagerConfig', JSON.stringify(settings));
+      // SECURITY: Don't store credentials in localStorage - only use Stream Deck's secure storage
 
-      // Also try to communicate with Stream Deck if possible
+      // Communicate with Stream Deck via parent window
       if (window.opener) {
         window.opener.postMessage({ action: 'saveSettings', settings: settings }, '*');
       }
     }
 
     function loadSettings() {
-      const stored = localStorage.getItem('dockerManagerConfig');
-      if (stored) {
-        try {
-          const settings = JSON.parse(stored);
+      // SECURITY: Request settings from parent window instead of localStorage
+      if (window.opener) {
+        window.opener.postMessage({ action: 'requestSettings' }, '*');
+      }
+    }
 
-          connectionType = settings.connectionType || 'ssh';
-          document.querySelectorAll('.conn-tab').forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.type === connectionType);
-          });
-          document.getElementById('ssh-settings').classList.toggle('hidden', connectionType !== 'ssh');
-          document.getElementById('docker-settings').classList.toggle('hidden', connectionType !== 'docker-api');
+    function applySettings(settings) {
+      if (!settings) return;
 
-          document.getElementById('sshHost').value = settings.sshHost || '';
-          document.getElementById('sshPort').value = settings.sshPort || 22;
-          document.getElementById('sshUsername').value = settings.sshUsername || '';
-          document.getElementById('sshPassword').value = settings.sshPassword || '';
-          document.getElementById('sshPrivateKey').value = settings.sshPrivateKey || '';
-          document.getElementById('dockerHost').value = settings.dockerHost || '';
-          document.getElementById('dockerPort').value = settings.dockerPort || 2375;
-          document.getElementById('dockerCertPath').value = settings.dockerCertPath || '';
-          document.getElementById('connectionTimeout').value = settings.connectionTimeout || 30;
-          document.getElementById('keepAlive').checked = settings.keepAlive !== false;
-        } catch (e) {
-          console.error('Failed to load settings:', e);
-        }
+      try {
+        connectionType = settings.connectionType || 'ssh';
+        document.querySelectorAll('.conn-tab').forEach(tab => {
+          tab.classList.toggle('active', tab.dataset.type === connectionType);
+        });
+        document.getElementById('ssh-settings').classList.toggle('hidden', connectionType !== 'ssh');
+        document.getElementById('docker-settings').classList.toggle('hidden', connectionType !== 'docker-api');
+
+        document.getElementById('sshHost').value = settings.sshHost || '';
+        document.getElementById('sshPort').value = settings.sshPort || 22;
+        document.getElementById('sshUsername').value = settings.sshUsername || '';
+        document.getElementById('sshPassword').value = settings.sshPassword || '';
+        document.getElementById('sshPrivateKey').value = settings.sshPrivateKey || '';
+        document.getElementById('dockerHost').value = settings.dockerHost || '';
+        document.getElementById('dockerPort').value = settings.dockerPort || 2375;
+        document.getElementById('dockerCertPath').value = settings.dockerCertPath || '';
+        document.getElementById('connectionTimeout').value = settings.connectionTimeout || 30;
+        document.getElementById('keepAlive').checked = settings.keepAlive !== false;
+      } catch (e) {
+        console.error('Failed to apply settings:', e);
       }
     }
 

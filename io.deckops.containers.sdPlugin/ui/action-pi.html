@@ -413,6 +413,7 @@
       // Only save backgroundColor if it's not the default or empty
       const backgroundColor = bgColorValue && bgColorValue !== '#2a2a2a' ? bgColorValue : '';
 
+      const iconSource = document.getElementById('iconSource').value;
       settings = {
         containerName: document.getElementById('containerName').value,
         displayName: document.getElementById('displayName').value,
@@ -424,9 +425,9 @@
         longPressUrl: document.getElementById('longPressUrl').value,
         longPressClipboardText: document.getElementById('longPressClipboardText').value,
         longPressDuration: parseInt(document.getElementById('longPressDuration').value) || 500,
-        iconSource: document.getElementById('iconSource').value,
+        iconSource: iconSource,
         iconUrl: document.getElementById('iconUrl').value,
-        customIconBase64: settings.customIconBase64 || '',
+        customIconBase64: iconSource !== 'default' ? (settings.customIconBase64 || '') : '',
         showTitle: document.getElementById('showTitle').checked,
         backgroundColor: backgroundColor
       };
@@ -638,6 +639,10 @@
 
     // Icon source handling
     document.getElementById('iconSource').addEventListener('change', () => {
+      const source = document.getElementById('iconSource').value;
+      if (source === 'default') {
+        settings.customIconBase64 = ''; // Clear when switching to default
+      }
       updateIconUI();
       updateBackgroundColorUI();
       saveSettings();
@@ -788,6 +793,13 @@
           if (event.source) {
             event.source.postMessage({ type: 'testResult', status: 'error', message: 'Plugin not connected' }, '*');
           }
+        }
+      }
+
+      // Handle request for current settings from config window
+      if (event.data.action === 'requestSettings') {
+        if (event.source && globalSettings.serverConfig) {
+          event.source.postMessage({ type: 'settingsData', settings: globalSettings.serverConfig }, '*');
         }
       }
     });
