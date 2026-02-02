@@ -1,0 +1,3 @@
+rmdir: failed to remove '/s': Directory not empty
+rmdir: failed to remove '/q': Permission denied
+rmdir: failed to remove 'releases\io.deckops.containers-v2.3.0.0.streamDeckPlugin': Directory not empty

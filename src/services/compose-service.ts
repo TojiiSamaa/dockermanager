@@ -47,8 +47,9 @@ class ComposeService {
       const files: ComposeFile[] = [];
 
       // Build find command for compose files
+      // Exclude node_modules, .git, and other common non-relevant directories
       const searchPathsStr = searchPaths.join(" ");
-      const command = `find ${searchPathsStr} \\( -name "docker-compose.yml" -o -name "docker-compose.yaml" -o -name "compose.yml" -o -name "compose.yaml" \\) -type f 2>/dev/null | head -100`;
+      const command = `find ${searchPathsStr} \\( -name "node_modules" -o -name ".git" -o -name "vendor" -o -name ".cache" \\) -prune -o \\( -name "docker-compose.yml" -o -name "docker-compose.yaml" -o -name "compose.yml" -o -name "compose.yaml" \\) -type f -print 2>/dev/null | head -500`;
 
       const output = await this.execCommand(command);
       const paths = output.trim().split("\n").filter(p => p.trim());
@@ -76,6 +77,63 @@ class ComposeService {
   }
 
   /**
+   * Discover compose files progressively, calling the callback for each file found
+   * This allows the UI to update as files are discovered
+   */
+  async discoverComposeFilesProgressive(
+    searchPaths: string[] = ["/"],
+    onFileFound: (file: ComposeFile) => void,
+    onComplete: (files: ComposeFile[]) => void
+  ): Promise<void> {
+    const now = Date.now();
+
+    // Return cache if fresh
+    if (this.composeFilesCache.length > 0 && (now - this.lastScan) < this.CACHE_TTL) {
+      // Still call callbacks for cached results
+      for (const file of this.composeFilesCache) {
+        onFileFound(file);
+      }
+      onComplete(this.composeFilesCache);
+      return;
+    }
+
+    try {
+      const files: ComposeFile[] = [];
+
+      // Build find command for compose files
+      const searchPathsStr = searchPaths.join(" ");
+      const command = `find ${searchPathsStr} \\( -name "node_modules" -o -name ".git" -o -name "vendor" -o -name ".cache" \\) -prune -o \\( -name "docker-compose.yml" -o -name "docker-compose.yaml" -o -name "compose.yml" -o -name "compose.yaml" \\) -type f -print 2>/dev/null | head -500`;
+
+      const output = await this.execCommand(command);
+      const paths = output.trim().split("\n").filter(p => p.trim());
+
+      pluginLogger.info(`Found ${paths.length} potential compose files, parsing...`, "compose");
+
+      for (const filePath of paths) {
+        try {
+          const file = await this.parseComposeFile(filePath);
+          if (file) {
+            files.push(file);
+            // Call the callback immediately when a file is parsed
+            onFileFound(file);
+          }
+        } catch (err) {
+          pluginLogger.warn(`Failed to parse compose file ${filePath}: ${err}`, "compose");
+        }
+      }
+
+      this.composeFilesCache = files;
+      this.lastScan = now;
+
+      pluginLogger.info(`Discovered ${files.length} compose files`, "compose");
+      onComplete(files);
+    } catch (error) {
+      pluginLogger.error(`Failed to discover compose files: ${error}`, "compose");
+      onComplete(this.composeFilesCache); // Return stale cache on error
+    }
+  }
+
+  /**
    * Parse a compose file to extract service information
    */
   private async parseComposeFile(filePath: string): Promise<ComposeFile | null> {
@@ -85,8 +143,21 @@ class ComposeService {
       const filename = parts.pop() || "";
       const directory = parts.join("/");
 
-      // Extract project name from directory (last folder name)
-      const projectName = parts[parts.length - 1] || "unknown";
+      // Extract meaningful project name from path
+      // For /mnt/user/code/apps/ksdoll/bot/v2/docker-compose.yml -> "ksdoll/bot/v2"
+      // Skip common root folders like mnt, user, code, apps, opt, home, root
+      const skipFolders = ["mnt", "user", "code", "apps", "opt", "home", "root", "var", "srv", "data", "appdata", "docker", "containers", "stacks"];
+      const meaningfulParts: string[] = [];
+
+      for (const part of parts) {
+        if (part && !skipFolders.includes(part.toLowerCase())) {
+          meaningfulParts.push(part);
+        }
+      }
+
+      // Take last 2-3 meaningful parts for the project name
+      const nameParts = meaningfulParts.slice(-3);
+      const projectName = nameParts.length > 0 ? nameParts.join("/") : parts[parts.length - 1] || "unknown";
 
       // Get services from compose file using docker compose config
       const servicesOutput = await this.execCommand(

@@ -13,11 +13,13 @@ interface PIMessage {
   tag?: string;
   force?: boolean;
   includeVolumes?: boolean;
+  serverId?: string;
 }
 
 interface ImageSettings {
   // Action type
   actionType: "pull" | "remove" | "prune" | "prune-all" | "system-prune" | "status";
+  serverId?: string; // Server ID to use for this action
 
   // For pull action
   imageName?: string;
@@ -100,7 +102,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
     // Handle pull-latest separately (only on long press)
     if (isLongPress && longPressAction === "pull-latest") {
       try {
-        await this.ensureConnected();
+        await this.ensureConnected(settings.serverId);
         await this.handlePullLatest(ev.action, settings);
         const version = this.settingsVersion.get(ev.action.id);
         if (version !== undefined) {
@@ -119,7 +121,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
     }
 
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(settings.serverId);
 
       switch (effectiveAction) {
         case "pull":
@@ -364,7 +366,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
 
   private async handleListLocalImages(ev: SendToPluginEvent<PIMessage, ImageSettings>): Promise<void> {
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
       const images = await imageService.listLocalImages(true);
       await ev.action.sendToPropertyInspector({
         localImages: images.map(img => ({
@@ -394,7 +396,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
     }
 
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
       const success = await imageService.pullImage(imageName, tag || "latest");
       await ev.action.sendToPropertyInspector({
         pullResult: { success, imageName, tag: tag || "latest" }
@@ -417,7 +419,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
     }
 
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
       const success = await imageService.removeImage(imageId, force || false);
       await ev.action.sendToPropertyInspector({
         removeResult: { success, imageId }
@@ -431,7 +433,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
 
   private async handleGetDiskUsage(ev: SendToPluginEvent<PIMessage, ImageSettings>): Promise<void> {
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
       const usage = await imageService.getDiskUsage();
       await ev.action.sendToPropertyInspector({ diskUsage: usage });
     } catch (error) {
@@ -446,7 +448,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
     includeVolumes?: boolean
   ): Promise<void> {
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
       const result = await imageService.systemPrune(includeVolumes || false);
       await ev.action.sendToPropertyInspector({
         pruneResult: result
@@ -460,7 +462,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
 
   private async handleTestConnection(ev: SendToPluginEvent<PIMessage, ImageSettings>): Promise<void> {
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
       await ev.action.sendToPropertyInspector({ connected: true });
     } catch (error) {
       await ev.action.sendToPropertyInspector({
@@ -509,7 +511,7 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
         case "status":
           title = title || "Docker";
           try {
-            await this.ensureConnected();
+            await this.ensureConnected(settings.serverId);
             const usage = await imageService.getDiskUsage();
             title = `${usage.images.count} img\n${usage.total}`;
           } catch {
@@ -565,15 +567,23 @@ export class DockerImageAction extends SingletonAction<ImageSettings> {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GB`;
   }
 
-  private async ensureConnected(): Promise<void> {
-    if (!dockerService.isConnected()) {
-      const config = globalSettings.getServerConfig();
-      if (config) {
-        await dockerService.configure(config);
-        await dockerService.connect();
-      } else {
-        throw new Error("No server configuration");
-      }
+  private async ensureConnected(serverId?: string): Promise<void> {
+    let config;
+    if (serverId) {
+      config = globalSettings.getServerById(serverId);
+    } else {
+      config = globalSettings.getServerConfig();
     }
+
+    if (!config) {
+      throw new Error("No server configuration");
+    }
+
+    // Use the new connection pool method - does NOT disconnect other servers
+    const connected = await dockerService.ensureServerConnection(config);
+    if (!connected) {
+      throw new Error("Failed to connect to server");
+    }
+    await dockerService.configure(config);
   }
 }

@@ -4,9 +4,22 @@ import { DockerLogsAction } from "./actions/docker-logs";
 import { DebugLogsAction, pluginLogger } from "./actions/debug-logs";
 import { DockerComposeAction } from "./actions/docker-compose";
 import { DockerImageAction } from "./actions/docker-image";
-import { globalSettings } from "./services/settings-manager";
+import { DockerPruneAction } from "./actions/docker-prune";
+import { DockerSystemPruneAction } from "./actions/docker-system-prune";
+import { DockerDiskAction } from "./actions/docker-disk";
+import { DockerNetworkAction } from "./actions/docker-network";
+import { DockerRunAction } from "./actions/docker-run";
+import { DockerGlobalStatusAction } from "./actions/docker-global-status";
+import { globalSettings, MultiServerConfig } from "./services/settings-manager";
+import { serverManager } from "./services/server-manager";
 import { dockerService, ServerConfig } from "./services/docker-service";
+
+interface GlobalSettingsPayload {
+  serverConfig?: ServerConfig;
+  servers?: MultiServerConfig[];
+}
 import { logServerManager } from "./services/log-server";
+import { globalStatusServer } from "./services/global-status-server";
 
 // Configure logging
 streamDeck.logger.setLevel(LogLevel.DEBUG);
@@ -20,6 +33,12 @@ streamDeck.actions.registerAction(new DockerLogsAction());
 streamDeck.actions.registerAction(new DebugLogsAction());
 streamDeck.actions.registerAction(new DockerComposeAction());
 streamDeck.actions.registerAction(new DockerImageAction());
+streamDeck.actions.registerAction(new DockerPruneAction());
+streamDeck.actions.registerAction(new DockerSystemPruneAction());
+streamDeck.actions.registerAction(new DockerDiskAction());
+streamDeck.actions.registerAction(new DockerNetworkAction());
+streamDeck.actions.registerAction(new DockerRunAction());
+streamDeck.actions.registerAction(new DockerGlobalStatusAction());
 
 // Initialize settings and auto-connect
 async function initialize() {
@@ -28,6 +47,10 @@ async function initialize() {
   // Load global settings
   await globalSettings.load();
   pluginLogger.info("Global settings loaded", "plugin");
+
+  // Load multi-server settings
+  await serverManager.load();
+  pluginLogger.info("Server manager loaded", "plugin");
 
   // Auto-connect if settings exist
   const serverConfig = globalSettings.getServerConfig();
@@ -46,18 +69,25 @@ async function initialize() {
 }
 
 // Listen for global settings changes
-streamDeck.settings.onDidReceiveGlobalSettings<{ serverConfig?: ServerConfig }>(async (ev) => {
+streamDeck.settings.onDidReceiveGlobalSettings<GlobalSettingsPayload>(async (ev) => {
   pluginLogger.info("Global settings received", "plugin");
   // SECURITY: Never log full settings - they contain credentials
 
-  // Update the globalSettings manager cache (don't save back to avoid loop)
+  // Handle new multi-server format
+  if (ev.settings?.servers && ev.settings.servers.length > 0) {
+    pluginLogger.info(`Received ${ev.settings.servers.length} servers from settings`, "plugin");
+    globalSettings.updateServersCache(ev.settings.servers);
+  }
+
+  // Handle legacy single server format
   if (ev.settings?.serverConfig) {
     globalSettings.updateServerConfigCache(ev.settings.serverConfig);
   }
 
-  const serverConfig = ev.settings?.serverConfig;
+  // Get the effective server config (from servers array or legacy)
+  const serverConfig = globalSettings.getServerConfig();
   if (serverConfig) {
-    pluginLogger.info(`New server config: ${serverConfig.connectionType} - ${serverConfig.sshHost || serverConfig.dockerHost}`, "plugin");
+    pluginLogger.info(`Server config: ${serverConfig.connectionType} - ${serverConfig.sshHost || serverConfig.dockerHost}`, "plugin");
     try {
       // Disconnect if already connected
       if (dockerService.isConnected()) {
@@ -68,9 +98,14 @@ streamDeck.settings.onDidReceiveGlobalSettings<{ serverConfig?: ServerConfig }>(
       // Configure and reconnect with new settings
       await dockerService.configure(serverConfig);
       const connected = await dockerService.connect();
-      pluginLogger.info(`Reconnected with new settings: ${connected ? "success" : "failed"}`, "plugin");
+      if (connected) {
+        const activeHost = dockerService.getActiveHost();
+        pluginLogger.info(`Connected to Docker server at ${activeHost}`, "plugin");
+      } else {
+        pluginLogger.error("Failed to connect to any configured host", "plugin");
+      }
     } catch (error) {
-      pluginLogger.error(`Failed to reconnect with new settings: ${error instanceof Error ? error.message : "Unknown error"}`, "plugin");
+      pluginLogger.error(`Failed to reconnect: ${error instanceof Error ? error.message : "Unknown error"}`, "plugin");
     }
   }
 });
@@ -83,6 +118,10 @@ async function cleanup() {
     // Destroy all log servers
     await logServerManager.destroyAllServers();
     pluginLogger.info("Log servers cleaned up", "plugin");
+
+    // Stop global status server
+    await globalStatusServer.stop();
+    pluginLogger.info("Global status server stopped", "plugin");
 
     // Disconnect from Docker
     if (dockerService.isConnected()) {

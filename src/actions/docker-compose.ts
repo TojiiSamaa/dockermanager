@@ -11,6 +11,7 @@ interface PIMessage {
   action?: string;
   searchPaths?: string[];
   query?: string;
+  serverId?: string;
 }
 
 interface ComposeSettings {
@@ -18,6 +19,7 @@ interface ComposeSettings {
   composePath: string;
   projectName: string;
   displayName?: string;
+  serverId?: string; // Server ID to use for this action
 
   // Action configuration
   actionType: "toggle" | "up" | "down" | "restart" | "build" | "pull";
@@ -122,7 +124,7 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
     }
 
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(settings.serverId);
 
       const composeFile = await this.getComposeFile(settings);
       if (!composeFile) {
@@ -254,23 +256,35 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
     searchPaths?: string[]
   ): Promise<void> {
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
 
       const paths = searchPaths && searchPaths.length > 0
         ? searchPaths
-        : ["/mnt/user/appdata", "/opt", "/home", "/root"];
+        : ["/mnt/user", "/opt", "/home", "/root"];
 
-      const files = await composeService.discoverComposeFiles(paths);
-
-      await ev.action.sendToPropertyInspector({
-        composeFiles: files.map(f => ({
-          path: f.path,
-          directory: f.directory,
-          projectName: f.projectName,
-          services: f.services,
-          servicesCount: f.services.length
-        }))
-      });
+      // Use progressive discovery - send files as they're found
+      await composeService.discoverComposeFilesProgressive(
+        paths,
+        // onFileFound callback - send each file immediately
+        async (file) => {
+          await ev.action.sendToPropertyInspector({
+            composeFileFound: {
+              path: file.path,
+              directory: file.directory,
+              projectName: file.projectName,
+              services: file.services,
+              servicesCount: file.services.length
+            }
+          });
+        },
+        // onComplete callback - send final summary
+        async (files) => {
+          await ev.action.sendToPropertyInspector({
+            discoveryComplete: true,
+            totalFiles: files.length
+          });
+        }
+      );
 
     } catch (error) {
       await ev.action.sendToPropertyInspector({
@@ -310,7 +324,7 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
     }
 
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(settings.serverId);
 
       const composeFile = await this.getComposeFile(settings);
       if (!composeFile) {
@@ -330,7 +344,8 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
 
   private async handleRefreshContainers(ev: SendToPluginEvent<PIMessage, ComposeSettings>): Promise<void> {
     try {
-      await this.ensureConnected();
+      const requestedServerId = ev.payload.serverId;
+      await this.ensureConnected(requestedServerId);
       const containers = await dockerService.listContainers();
       await ev.action.sendToPropertyInspector({ containers });
     } catch (error) {
@@ -342,7 +357,7 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
 
   private async handleTestConnection(ev: SendToPluginEvent<PIMessage, ComposeSettings>): Promise<void> {
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(ev.payload.serverId);
       await ev.action.sendToPropertyInspector({ connected: true });
     } catch (error) {
       await ev.action.sendToPropertyInspector({
@@ -353,10 +368,10 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
   }
 
   private async openLogs(settings: ComposeSettings): Promise<void> {
-    const { composePath, projectName, targetService } = settings;
+    const { composePath, projectName, targetService, serverId } = settings;
 
     try {
-      await this.ensureConnected();
+      await this.ensureConnected(serverId);
 
       const identifier = targetService || projectName || composePath;
       const displayName = settings.displayName || projectName || "Compose Stack";
@@ -397,7 +412,7 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
         return;
       }
 
-      await this.ensureConnected();
+      await this.ensureConnected(settings.serverId);
 
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
         return;
@@ -493,15 +508,25 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
     };
   }
 
-  private async ensureConnected(): Promise<void> {
-    if (!dockerService.isConnected()) {
-      const config = globalSettings.getServerConfig();
-      if (config) {
-        await dockerService.configure(config);
-        await dockerService.connect();
-      } else {
-        throw new Error("No server configuration");
-      }
+  private async ensureConnected(serverId?: string): Promise<void> {
+    // Get server config - use specific server if provided, otherwise default
+    let config;
+    if (serverId) {
+      config = globalSettings.getServerById(serverId);
+    } else {
+      config = globalSettings.getServerConfig();
     }
+
+    if (!config) {
+      throw new Error("No server configuration");
+    }
+
+    // Use the new connection pool method - does NOT disconnect other servers
+    const connected = await dockerService.ensureServerConnection(config);
+    if (!connected) {
+      throw new Error("Failed to connect to server");
+    }
+    // Also set as current for backwards compatibility
+    await dockerService.configure(config);
   }
 }

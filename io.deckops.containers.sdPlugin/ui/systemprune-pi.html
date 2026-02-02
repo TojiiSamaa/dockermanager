@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nettoyage Système Docker</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #2D2D2D;
+      color: #E8E8E8;
+      margin: 0;
+      padding: 12px;
+    }
+    .section {
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #9E9E9E;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      color: #BDBDBD;
+      margin-bottom: 4px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #1A1A1A;
+      color: #E8E8E8;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #0078D4;
+    }
+    select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #1A1A1A;
+      color: #E8E8E8;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    .info-box {
+      background: #1A1A1A;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+    .info-text {
+      font-size: 11px;
+      color: #9E9E9E;
+      line-height: 1.4;
+    }
+    .warning-box {
+      background: #3D2A1A;
+      border: 1px solid #C0392B;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+    .warning-text {
+      font-size: 11px;
+      color: #E74C3C;
+      line-height: 1.4;
+    }
+    .danger-text {
+      font-size: 11px;
+      color: #C0392B;
+      font-weight: bold;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #BDBDBD;
+      cursor: pointer;
+    }
+    .checkbox-label input {
+      width: auto;
+    }
+    .divider {
+      height: 1px;
+      background: #444;
+      margin: 16px 0;
+    }
+    ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+    li {
+      font-size: 11px;
+      color: #9E9E9E;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="section">
+    <div class="section-title">Serveur(s) cible(s)</div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="allServers">
+        <span>Exécuter sur tous les serveurs</span>
+      </label>
+    </div>
+
+    <div id="serverSelectContainer">
+      <div class="form-group">
+        <label class="form-label">Serveur unique</label>
+        <select id="serverSelect">
+          <option value="">Serveur par défaut</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ou sélectionner plusieurs serveurs:</label>
+        <div id="serverCheckboxes" style="background: #1A1A1A; border: 1px solid #444; border-radius: 4px; padding: 8px; max-height: 120px; overflow-y: auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Nettoyage Système Docker</div>
+
+    <div class="warning-box">
+      <div class="danger-text">⚠️ Action destructive</div>
+      <div class="warning-text" style="margin-top: 6px;">
+        Cette action supprime définitivement des données Docker. Utilisez avec précaution.
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-top: 12px;">
+      <div class="info-text">
+        <strong>Ce qui sera supprimé :</strong>
+        <ul>
+          <li>Tous les containers arrêtés</li>
+          <li>Tous les réseaux non utilisés</li>
+          <li>Toutes les images orphelines (dangling)</li>
+          <li>Tout le cache de build</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Options</div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="includeVolumes">
+        <span>Inclure les volumes non utilisés</span>
+      </label>
+      <div class="warning-text" style="margin-top: 4px; margin-left: 24px;">
+        ⚠️ Attention: Cela supprimera les données persistantes des containers!
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Affichage</div>
+
+    <div class="form-group">
+      <label class="form-label">Nom personnalisé (optionnel)</label>
+      <input type="text" id="displayName" placeholder="Nom sur le bouton...">
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="showTitle" checked>
+        <span>Afficher le titre</span>
+      </label>
+    </div>
+  </div>
+
+  <script>
+    let $SD;
+    let globalSettings = {};
+    let currentSettings = {};
+    let pluginUUID;
+
+    function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo, inActionInfo) {
+      const actionInfo = JSON.parse(inActionInfo);
+      currentSettings = actionInfo.payload.settings || {};
+      pluginUUID = inPluginUUID;
+
+      $SD = new WebSocket(`ws://127.0.0.1:${inPort}`);
+
+      $SD.onopen = function() {
+        $SD.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inPluginUUID
+        }));
+
+        // Request global settings to get server list
+        $SD.send(JSON.stringify({
+          event: 'getGlobalSettings',
+          context: inPluginUUID
+        }));
+
+        loadSettings(currentSettings);
+      };
+
+      $SD.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+        if (data.event === "didReceiveSettings") {
+          currentSettings = data.payload.settings || {};
+          loadSettings(currentSettings);
+        }
+        if (data.event === "didReceiveGlobalSettings") {
+          globalSettings = data.payload.settings || {};
+          populateServerDropdown();
+        }
+      };
+
+      setupEventListeners(inPluginUUID);
+    }
+
+    function populateServerDropdown() {
+      const select = document.getElementById('serverSelect');
+      const checkboxContainer = document.getElementById('serverCheckboxes');
+      const servers = globalSettings.servers || [];
+
+      // Populate single server dropdown
+      if (servers.length > 0) {
+        select.innerHTML = '';
+        servers.forEach(server => {
+          const option = document.createElement('option');
+          option.value = server.id;
+          option.textContent = server.name + (server.isDefault ? ' (défaut)' : '');
+          select.appendChild(option);
+        });
+      } else {
+        select.innerHTML = '<option value="">Aucun serveur configuré</option>';
+      }
+
+      // Populate multi-server checkboxes
+      checkboxContainer.innerHTML = '';
+      servers.forEach(server => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display: block; margin-bottom: 6px; cursor: pointer; font-size: 12px;';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = server.id;
+        checkbox.className = 'serverCheckbox';
+        checkbox.style.marginRight = '8px';
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(server.name + (server.isDefault ? ' (défaut)' : '')));
+        checkboxContainer.appendChild(label);
+      });
+
+      // Restore selection
+      if (currentSettings.targetServers === 'all') {
+        document.getElementById('allServers').checked = true;
+        document.getElementById('serverSelectContainer').style.display = 'none';
+      } else if (Array.isArray(currentSettings.targetServers)) {
+        currentSettings.targetServers.forEach(id => {
+          const cb = checkboxContainer.querySelector(`input[value="${id}"]`);
+          if (cb) cb.checked = true;
+        });
+      } else if (currentSettings.serverId) {
+        select.value = currentSettings.serverId;
+      } else if (servers.length > 0) {
+        const defaultServer = servers.find(s => s.isDefault) || servers[0];
+        if (defaultServer) {
+          select.value = defaultServer.id;
+        }
+      }
+
+      updateServerVisibility();
+    }
+
+    function updateServerVisibility() {
+      const allServers = document.getElementById('allServers').checked;
+      document.getElementById('serverSelectContainer').style.display = allServers ? 'none' : 'block';
+    }
+
+    function loadSettings(settings) {
+      document.getElementById("allServers").checked = settings.targetServers === 'all';
+      document.getElementById("serverSelect").value = settings.serverId || "";
+      document.getElementById("includeVolumes").checked = settings.includeVolumes || false;
+      document.getElementById("displayName").value = settings.displayName || "";
+      document.getElementById("showTitle").checked = settings.showTitle !== false;
+
+      updateServerVisibility();
+    }
+
+    function setupEventListeners(uuid) {
+      const allServers = document.getElementById("allServers");
+      const serverSelect = document.getElementById("serverSelect");
+      const includeVolumes = document.getElementById("includeVolumes");
+      const displayName = document.getElementById("displayName");
+      const showTitle = document.getElementById("showTitle");
+
+      allServers.addEventListener("change", () => {
+        updateServerVisibility();
+        saveSettings(uuid);
+      });
+      serverSelect.addEventListener("change", () => saveSettings(uuid));
+      includeVolumes.addEventListener("change", () => saveSettings(uuid));
+      displayName.addEventListener("input", () => saveSettings(uuid));
+      showTitle.addEventListener("change", () => saveSettings(uuid));
+
+      // Listen for checkbox changes
+      document.getElementById('serverCheckboxes').addEventListener('change', () => saveSettings(uuid));
+    }
+
+    function saveSettings(uuid) {
+      const allServers = document.getElementById("allServers").checked;
+
+      // Determine targetServers value
+      let targetServers;
+      if (allServers) {
+        targetServers = 'all';
+      } else {
+        const selectedServers = Array.from(document.querySelectorAll('.serverCheckbox:checked')).map(cb => cb.value);
+        if (selectedServers.length > 0) {
+          targetServers = selectedServers;
+        } else {
+          targetServers = 'default';
+        }
+      }
+
+      const settings = {
+        serverId: document.getElementById("serverSelect").value || undefined,
+        targetServers: targetServers,
+        includeVolumes: document.getElementById("includeVolumes").checked,
+        displayName: document.getElementById("displayName").value,
+        showTitle: document.getElementById("showTitle").checked
+      };
+
+      $SD.send(JSON.stringify({
+        event: "setSettings",
+        context: uuid,
+        payload: settings
+      }));
+    }
+  </script>
+</body>
+</html>

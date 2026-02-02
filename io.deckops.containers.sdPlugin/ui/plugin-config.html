@@ -15,17 +15,17 @@
     }
 
     .container {
-      max-width: 500px;
+      max-width: 550px;
       margin: 0 auto;
     }
 
     /* Header */
     .header {
       text-align: center;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
     }
     .header h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
       color: #0db7ed;
       margin-bottom: 8px;
@@ -48,12 +48,12 @@
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
+      padding: 20px;
+      margin-bottom: 16px;
       backdrop-filter: blur(10px);
     }
     .card-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       color: #0db7ed;
       margin-bottom: 16px;
@@ -71,29 +71,29 @@
 
     /* Form */
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .form-label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       color: #aaa;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
       font-weight: 500;
     }
     .form-hint {
-      font-size: 11px;
+      font-size: 10px;
       color: #666;
       margin-top: 4px;
     }
 
     input, select, textarea {
       width: 100%;
-      padding: 12px 14px;
+      padding: 10px 12px;
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: 8px;
       background: rgba(0,0,0,0.3);
       color: #E8E8E8;
-      font-size: 13px;
+      font-size: 12px;
       transition: all 0.2s;
     }
     input:focus, select:focus, textarea:focus {
@@ -106,26 +106,23 @@
     }
     textarea {
       resize: vertical;
-      min-height: 100px;
+      min-height: 80px;
       font-family: 'Monaco', 'Consolas', monospace;
       font-size: 11px;
-    }
-    select {
-      cursor: pointer;
     }
 
     /* Buttons */
     .btn {
-      padding: 12px 20px;
+      padding: 10px 16px;
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       transition: all 0.2s;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
     .btn-primary {
       background: linear-gradient(135deg, #0db7ed 0%, #0a9fd4 100%);
@@ -143,21 +140,122 @@
     .btn-secondary:hover {
       background: rgba(255,255,255,0.15);
     }
+    .btn-danger {
+      background: rgba(244,67,54,0.2);
+      color: #F44336;
+      border: 1px solid rgba(244,67,54,0.3);
+    }
+    .btn-danger:hover {
+      background: rgba(244,67,54,0.3);
+    }
+    .btn-small {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
     .btn-row {
       display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    /* Server List */
+    .server-list {
+      margin-bottom: 16px;
+    }
+    .server-item {
+      display: flex;
+      align-items: center;
       gap: 12px;
-      margin-top: 20px;
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .server-item:hover {
+      background: rgba(0,0,0,0.3);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .server-item.selected {
+      background: rgba(13,183,237,0.15);
+      border-color: #0db7ed;
+    }
+    .server-item.default::after {
+      content: 'DEFAULT';
+      font-size: 9px;
+      padding: 2px 6px;
+      background: rgba(76,175,80,0.3);
+      color: #4CAF50;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+    .server-icon {
+      font-size: 20px;
+    }
+    .server-info {
+      flex: 1;
+    }
+    .server-name {
+      font-weight: 500;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .server-address {
+      font-size: 11px;
+      color: #888;
+    }
+    .server-status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #666;
+    }
+    .server-status.online { background: #4CAF50; }
+    .server-status.offline { background: #F44336; }
+    .server-status.unknown { background: #FF9800; }
+
+    .server-delete-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(244,67,54,0.15);
+      color: #F44336;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+    .server-delete-btn:hover {
+      background: rgba(244,67,54,0.3);
+      transform: scale(1.1);
+    }
+    .server-delete-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .no-servers {
+      text-align: center;
+      color: #666;
+      padding: 24px;
+      font-size: 12px;
     }
 
     /* Status */
     .status {
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-radius: 8px;
-      font-size: 13px;
-      margin-top: 16px;
+      font-size: 12px;
+      margin-top: 12px;
       display: none;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .status.show { display: flex; }
     .status.success {
@@ -176,47 +274,15 @@
       color: #2196F3;
     }
 
-    /* GitHub import */
-    .github-row {
-      display: flex;
-      gap: 8px;
-    }
-    .github-row input {
-      flex: 1;
-    }
-    .github-row .btn {
-      white-space: nowrap;
-    }
-
-    /* Toggle switch */
-    .toggle-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-    .toggle-row:last-child {
-      border-bottom: none;
-    }
-    .toggle-label {
-      font-size: 13px;
-    }
-    .toggle-desc {
-      font-size: 11px;
-      color: #666;
-      margin-top: 2px;
-    }
-
     /* Connection type tabs */
     .conn-tabs {
       display: flex;
       gap: 8px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     .conn-tab {
       flex: 1;
-      padding: 12px;
+      padding: 10px;
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 8px;
@@ -232,22 +298,115 @@
       border-color: #0db7ed;
     }
     .conn-tab-icon {
-      font-size: 20px;
+      font-size: 18px;
       margin-bottom: 4px;
     }
     .conn-tab-label {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
     }
 
+    /* Backup addresses */
+    .backup-list {
+      margin-top: 8px;
+    }
+    .backup-item {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+    .backup-item input {
+      flex: 1;
+    }
+    .backup-item .btn {
+      padding: 8px 10px;
+    }
+
     .hidden { display: none !important; }
+
+    /* SSH Key Section */
+    .ssh-key-section {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .ssh-key-info p {
+      line-height: 1.4;
+    }
+    .command-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 6px;
+    }
+    .command-box code {
+      flex: 1;
+      font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+      font-size: 10px;
+      color: #0db7ed;
+      word-break: break-all;
+      user-select: all;
+    }
+    .command-box .btn {
+      flex-shrink: 0;
+    }
+
+    /* Tabs for views */
+    .view-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      background: rgba(0,0,0,0.2);
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .view-tab {
+      flex: 1;
+      padding: 10px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #888;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .view-tab:hover {
+      color: #E8E8E8;
+    }
+    .view-tab.active {
+      background: rgba(13,183,237,0.3);
+      color: #E8E8E8;
+    }
+
+    /* Checkbox */
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: auto;
+    }
+    .checkbox-row label {
+      font-size: 12px;
+      cursor: pointer;
+    }
 
     /* Version */
     .version {
       text-align: center;
       color: #444;
-      font-size: 11px;
-      margin-top: 24px;
+      font-size: 10px;
+      margin-top: 20px;
     }
   </style>
 </head>
@@ -260,121 +419,185 @@
         </svg>
         Docker Manager
       </h1>
-      <p>Configure your Docker server connection</p>
+      <p>Multi-Server Configuration</p>
     </div>
 
-    <!-- Connection Type -->
-    <div class="card">
-      <div class="card-title">Connection Method</div>
-      <div class="conn-tabs">
-        <div class="conn-tab active" data-type="ssh">
-          <div class="conn-tab-icon">🔐</div>
-          <div class="conn-tab-label">SSH</div>
+    <!-- View Tabs -->
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="servers">Servers</button>
+      <button class="view-tab" data-view="edit">Edit Server</button>
+    </div>
+
+    <!-- Server List View -->
+    <div id="view-servers">
+      <div class="card">
+        <div class="card-title">Configured Servers</div>
+        <div class="server-list" id="serverList">
+          <div class="no-servers">No servers configured yet</div>
         </div>
-        <div class="conn-tab" data-type="docker-api">
-          <div class="conn-tab-icon">🐳</div>
-          <div class="conn-tab-label">Docker API</div>
+        <button class="btn btn-primary" id="addServerBtn" style="width: 100%;">
+          + Add Server
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Server View -->
+    <div id="view-edit" class="hidden">
+      <div class="card">
+        <div class="card-title" id="editTitle">Add New Server</div>
+
+        <div class="form-group">
+          <label class="form-label">Server Name</label>
+          <input type="text" id="serverName" placeholder="My NAS, Home Server, Work PC...">
+        </div>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="isDefault">
+          <label for="isDefault">Set as default server</label>
         </div>
       </div>
 
-      <!-- SSH Settings -->
-      <div id="ssh-settings">
-        <div class="form-group">
-          <label class="form-label">Host</label>
-          <input type="text" id="sshHost" placeholder="192.168.1.100 or unraid.local">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Port</label>
-          <input type="number" id="sshPort" value="22" min="1" max="65535">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input type="text" id="sshUsername" placeholder="root">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" id="sshPassword" placeholder="Enter password">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Or import SSH key from GitHub</label>
-          <div class="github-row">
-            <input type="text" id="githubUsername" placeholder="GitHub username">
-            <button class="btn btn-secondary" id="importGithub">Import</button>
+      <div class="card">
+        <div class="card-title">Connection Method</div>
+        <div class="conn-tabs">
+          <div class="conn-tab active" data-type="ssh">
+            <div class="conn-tab-icon">🔐</div>
+            <div class="conn-tab-label">SSH</div>
           </div>
-          <div class="form-hint">This shows your public keys. You still need to paste your private key below.</div>
+          <div class="conn-tab" data-type="docker-api">
+            <div class="conn-tab-icon">🐳</div>
+            <div class="conn-tab-label">Docker API</div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Private Key (optional)</label>
-          <textarea id="sshPrivateKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+        <!-- SSH Settings -->
+        <div id="ssh-settings">
+          <div class="form-group">
+            <label class="form-label">Primary Host</label>
+            <input type="text" id="sshHost" placeholder="192.168.1.100 or nas.local">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Backup Addresses (fallback)</label>
+            <div class="form-hint">If primary fails, these will be tried in order</div>
+            <div class="backup-list" id="backupList">
+              <!-- Backup addresses will be added here -->
+            </div>
+            <button class="btn btn-secondary btn-small" id="addBackupBtn" style="margin-top: 8px;">
+              + Add Backup Address
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Port</label>
+            <input type="number" id="sshPort" value="22" min="1" max="65535">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="sshUsername" placeholder="root">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" id="sshPassword" placeholder="Enter password">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">SSH Key Authentication (recommended)</label>
+            <div class="ssh-key-section">
+              <div class="ssh-key-info">
+                <p style="font-size: 11px; color: #888; margin-bottom: 8px;">Generate a dedicated SSH key for Stream Deck:</p>
+                <div class="command-box">
+                  <code id="sshKeygenCmd">ssh-keygen -t ed25519 -f ~/.ssh/streamdeck_key -N "" -C "streamdeck"</code>
+                  <button class="btn btn-small" onclick="copyCommand()" id="copyCommandBtn">Copy</button>
+                </div>
+                <p style="font-size: 10px; color: #666; margin-top: 6px;">Then add the public key to your server:</p>
+                <div class="command-box">
+                  <code id="sshCopyIdCmd">ssh-copy-id -i ~/.ssh/streamdeck_key.pub user@server</code>
+                  <button class="btn btn-small" onclick="copyCommand2()" id="copyCommandBtn2">Copy</button>
+                </div>
+              </div>
+              <div style="margin-top: 12px;">
+                <label class="form-label">Private Key Path</label>
+                <input type="text" id="sshKeyPath" placeholder="~/.ssh/streamdeck_key or C:\Users\you\.ssh\streamdeck_key">
+                <div class="form-hint">Path to your private key file (leave empty to use password)</div>
+              </div>
+              <div style="margin-top: 8px;">
+                <label class="form-label">Or paste Private Key directly</label>
+                <textarea id="sshPrivateKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
 ...
------END OPENSSH PRIVATE KEY-----"></textarea>
+-----END OPENSSH PRIVATE KEY-----" style="min-height: 60px;"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Docker API Settings -->
+        <div id="docker-settings" class="hidden">
+          <div class="form-group">
+            <label class="form-label">Docker Host</label>
+            <input type="text" id="dockerHost" placeholder="192.168.1.100">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Port</label>
+            <input type="number" id="dockerPort" value="2375" min="1" max="65535">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">TLS Certificates Path (optional)</label>
+            <input type="text" id="dockerCertPath" placeholder="/path/to/certs">
+          </div>
         </div>
       </div>
 
-      <!-- Docker API Settings -->
-      <div id="docker-settings" class="hidden">
+      <div class="card">
+        <div class="card-title">Advanced Settings</div>
+
         <div class="form-group">
-          <label class="form-label">Docker Host</label>
-          <input type="text" id="dockerHost" placeholder="192.168.1.100">
+          <label class="form-label">Connection Timeout (seconds)</label>
+          <input type="number" id="connectionTimeout" value="30" min="5" max="120">
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Port</label>
-          <input type="number" id="dockerPort" value="2375" min="1" max="65535">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">TLS Certificates Path (optional)</label>
-          <input type="text" id="dockerCertPath" placeholder="/path/to/certs">
-          <div class="form-hint">For secure connections over the internet</div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="keepAlive" checked>
+          <label for="keepAlive">Keep Connection Alive</label>
         </div>
       </div>
-    </div>
 
-    <!-- Advanced Settings -->
-    <div class="card">
-      <div class="card-title">Advanced Settings</div>
-
-      <div class="form-group">
-        <label class="form-label">Connection Timeout (seconds)</label>
-        <input type="number" id="connectionTimeout" value="30" min="5" max="120">
-        <div class="form-hint">Increase for slow connections (VPN, internet)</div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="testBtn">Test Connection</button>
+        <button class="btn btn-primary" id="saveServerBtn">Save</button>
       </div>
 
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-label">Keep Connection Alive</div>
-          <div class="toggle-desc">Maintains connection for faster response</div>
-        </div>
-        <input type="checkbox" id="keepAlive" checked>
-      </div>
-    </div>
-
-    <!-- Actions -->
-    <div class="btn-row">
-      <button class="btn btn-primary" id="testConnection">
-        🔌 Test Connection
+      <button class="btn btn-danger btn-small" id="deleteServerBtn" style="margin-top: 12px; width: 100%; display: none;">
+        Delete Server
       </button>
-      <button class="btn btn-secondary" id="saveSettings">
-        💾 Save
-      </button>
+
+      <div id="status" class="status"></div>
     </div>
 
-    <div id="status" class="status"></div>
-
-    <div class="version">Docker Manager v1.1.0</div>
+    <div class="version">Docker Manager v2.3.0</div>
   </div>
 
   <script>
+    let servers = [];
+    let editingServerId = null;
     let connectionType = 'ssh';
+    let backupAddresses = [];
 
-    // Load settings on page load
-    document.addEventListener('DOMContentLoaded', loadSettings);
+    // View management
+    document.querySelectorAll('.view-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const view = tab.dataset.view;
+        document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('view-servers').classList.toggle('hidden', view !== 'servers');
+        document.getElementById('view-edit').classList.toggle('hidden', view !== 'edit');
+      });
+    });
 
     // Connection type tabs
     document.querySelectorAll('.conn-tab').forEach(tab => {
@@ -382,52 +605,375 @@
         document.querySelectorAll('.conn-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         connectionType = tab.dataset.type;
-
         document.getElementById('ssh-settings').classList.toggle('hidden', connectionType !== 'ssh');
         document.getElementById('docker-settings').classList.toggle('hidden', connectionType !== 'docker-api');
       });
     });
 
-    // GitHub import
-    document.getElementById('importGithub').addEventListener('click', async () => {
-      const username = document.getElementById('githubUsername').value.trim();
-      if (!username) {
-        showStatus('Enter a GitHub username', 'error');
-        return;
-      }
+    // Add server button
+    document.getElementById('addServerBtn').addEventListener('click', () => {
+      editingServerId = null;
+      clearForm();
+      document.getElementById('editTitle').textContent = 'Add New Server';
+      document.getElementById('deleteServerBtn').style.display = 'none';
+      switchToView('edit');
+    });
 
-      showStatus('Fetching keys from GitHub...', 'info');
+    // Cancel button
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+      switchToView('servers');
+    });
 
-      try {
-        const response = await fetch(`https://github.com/${username}.keys`);
-        if (response.ok) {
-          const keys = await response.text();
-          const keyCount = keys.trim().split('\n').filter(k => k).length;
-          showStatus(`Found ${keyCount} public key(s) for ${username}. Now paste your PRIVATE key.`, 'success');
-        } else {
-          showStatus('User not found or no public keys', 'error');
-        }
-      } catch (err) {
-        showStatus('Failed to fetch from GitHub', 'error');
-      }
+    // Add backup address
+    document.getElementById('addBackupBtn').addEventListener('click', () => {
+      backupAddresses.push('');
+      renderBackupList();
     });
 
     // Test connection
-    document.getElementById('testConnection').addEventListener('click', async () => {
-      // First save the settings
-      saveSettings();
+    document.getElementById('testBtn').addEventListener('click', () => {
       showStatus('Testing connection...', 'info');
-
-      // Send test request to the Property Inspector which will relay to plugin
+      // Save current form to test
+      const serverConfig = getFormData();
       if (window.opener) {
-        window.opener.postMessage({ action: 'testConnection' }, '*');
+        window.opener.postMessage({ action: 'testConnection', config: serverConfig }, '*');
       } else {
         showStatus('Cannot test: Open this page from Stream Deck', 'error');
       }
     });
 
-    // Listen for messages from Property Inspector
+    // Save server
+    document.getElementById('saveServerBtn').addEventListener('click', () => {
+      const serverConfig = getFormData();
+
+      if (!serverConfig.name) {
+        showStatus('Please enter a server name', 'error');
+        return;
+      }
+
+      if (connectionType === 'ssh' && !serverConfig.sshHost) {
+        showStatus('Please enter a host address', 'error');
+        return;
+      }
+
+      if (editingServerId) {
+        // Update existing
+        const index = servers.findIndex(s => s.id === editingServerId);
+        if (index !== -1) {
+          servers[index] = { ...serverConfig, id: editingServerId };
+        }
+      } else {
+        // Add new
+        serverConfig.id = 'server_' + Date.now();
+        servers.push(serverConfig);
+      }
+
+      // Handle default server
+      if (serverConfig.isDefault) {
+        servers.forEach(s => {
+          if (s.id !== serverConfig.id) s.isDefault = false;
+        });
+      }
+
+      // Ensure at least one default
+      if (!servers.some(s => s.isDefault) && servers.length > 0) {
+        servers[0].isDefault = true;
+      }
+
+      saveAllSettings();
+      renderServerList();
+      switchToView('servers');
+      showStatus('Server saved!', 'success');
+    });
+
+    // Delete server
+    document.getElementById('deleteServerBtn').addEventListener('click', () => {
+      if (!editingServerId) return;
+      if (confirm('Are you sure you want to delete this server?')) {
+        servers = servers.filter(s => s.id !== editingServerId);
+
+        // Ensure at least one default
+        if (!servers.some(s => s.isDefault) && servers.length > 0) {
+          servers[0].isDefault = true;
+        }
+
+        saveAllSettings();
+        renderServerList();
+        switchToView('servers');
+      }
+    });
+
+    function switchToView(view) {
+      document.querySelectorAll('.view-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.view === view);
+      });
+      document.getElementById('view-servers').classList.toggle('hidden', view !== 'servers');
+      document.getElementById('view-edit').classList.toggle('hidden', view !== 'edit');
+    }
+
+    function renderServerList() {
+      const list = document.getElementById('serverList');
+
+      if (servers.length === 0) {
+        list.innerHTML = '<div class="no-servers">No servers configured yet</div>';
+        return;
+      }
+
+      list.innerHTML = servers.map(server => `
+        <div class="server-item ${server.isDefault ? 'default' : ''}" data-id="${server.id}">
+          <span class="server-icon">${server.connectionType === 'ssh' ? '🔐' : '🐳'}</span>
+          <div class="server-info">
+            <div class="server-name">${server.name || 'Unnamed Server'}</div>
+            <div class="server-address">${server.connectionType === 'ssh' ? server.sshHost : server.dockerHost}${server.backupAddresses?.length ? ` (+${server.backupAddresses.length} backup)` : ''}</div>
+          </div>
+          <div class="server-status unknown"></div>
+          <button class="server-delete-btn" data-delete-id="${server.id}" title="Delete server">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+
+      // Click to edit
+      list.querySelectorAll('.server-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          // Don't edit if clicking delete button
+          if (e.target.closest('.server-delete-btn')) return;
+          const server = servers.find(s => s.id === item.dataset.id);
+          if (server) {
+            editServer(server);
+          }
+        });
+      });
+
+      // Delete buttons
+      list.querySelectorAll('.server-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const serverId = btn.dataset.deleteId;
+          const server = servers.find(s => s.id === serverId);
+          if (server && confirm(`Delete server "${server.name || 'Unnamed Server'}"?`)) {
+            servers = servers.filter(s => s.id !== serverId);
+
+            // Ensure at least one default
+            if (!servers.some(s => s.isDefault) && servers.length > 0) {
+              servers[0].isDefault = true;
+            }
+
+            saveAllSettings();
+            renderServerList();
+          }
+        });
+      });
+    }
+
+    function editServer(server) {
+      editingServerId = server.id;
+      document.getElementById('editTitle').textContent = 'Edit Server';
+      document.getElementById('deleteServerBtn').style.display = 'block';
+
+      // Set connection type
+      connectionType = server.connectionType || 'ssh';
+      document.querySelectorAll('.conn-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.type === connectionType);
+      });
+      document.getElementById('ssh-settings').classList.toggle('hidden', connectionType !== 'ssh');
+      document.getElementById('docker-settings').classList.toggle('hidden', connectionType !== 'docker-api');
+
+      // Fill form
+      document.getElementById('serverName').value = server.name || '';
+      document.getElementById('isDefault').checked = server.isDefault || false;
+      document.getElementById('sshHost').value = server.sshHost || '';
+      document.getElementById('sshPort').value = server.sshPort || 22;
+      document.getElementById('sshUsername').value = server.sshUsername || '';
+      document.getElementById('sshPassword').value = server.sshPassword || '';
+      document.getElementById('sshPrivateKey').value = server.sshPrivateKey || '';
+      document.getElementById('sshKeyPath').value = server.sshKeyPath || '';
+      document.getElementById('dockerHost').value = server.dockerHost || '';
+      document.getElementById('dockerPort').value = server.dockerPort || 2375;
+      document.getElementById('dockerCertPath').value = server.dockerCertPath || '';
+      document.getElementById('connectionTimeout').value = server.connectionTimeout || 30;
+      document.getElementById('keepAlive').checked = server.keepAlive !== false;
+
+      // Backup addresses
+      backupAddresses = server.backupAddresses || [];
+      renderBackupList();
+
+      // Update the ssh-copy-id command with current values
+      updateSshCopyIdCmd();
+
+      switchToView('edit');
+    }
+
+    function clearForm() {
+      document.getElementById('serverName').value = '';
+      document.getElementById('isDefault').checked = servers.length === 0;
+      document.getElementById('sshHost').value = '';
+      document.getElementById('sshPort').value = 22;
+      document.getElementById('sshUsername').value = '';
+      document.getElementById('sshPassword').value = '';
+      document.getElementById('sshPrivateKey').value = '';
+      document.getElementById('sshKeyPath').value = '';
+      document.getElementById('dockerHost').value = '';
+      document.getElementById('dockerPort').value = 2375;
+      document.getElementById('dockerCertPath').value = '';
+      document.getElementById('connectionTimeout').value = 30;
+      document.getElementById('keepAlive').checked = true;
+      backupAddresses = [];
+      renderBackupList();
+
+      // Reset to SSH
+      connectionType = 'ssh';
+      document.querySelectorAll('.conn-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.type === 'ssh');
+      });
+      document.getElementById('ssh-settings').classList.remove('hidden');
+      document.getElementById('docker-settings').classList.add('hidden');
+    }
+
+    function renderBackupList() {
+      const list = document.getElementById('backupList');
+
+      if (backupAddresses.length === 0) {
+        list.innerHTML = '<div style="color: #666; font-size: 11px; padding: 8px 0;">No backup addresses</div>';
+        return;
+      }
+
+      list.innerHTML = backupAddresses.map((addr, i) => `
+        <div class="backup-item">
+          <input type="text" value="${addr}" placeholder="192.168.1.101 or backup.local" onchange="updateBackup(${i}, this.value)">
+          <button class="btn btn-danger btn-small" onclick="removeBackup(${i})">×</button>
+        </div>
+      `).join('');
+    }
+
+    window.updateBackup = function(index, value) {
+      backupAddresses[index] = value;
+    };
+
+    window.removeBackup = function(index) {
+      backupAddresses.splice(index, 1);
+      renderBackupList();
+    };
+
+    // Fallback copy function that works in Property Inspector
+    function copyToClipboard(text, btn) {
+      // Create temporary textarea
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+
+      try {
+        document.execCommand('copy');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      } catch (err) {
+        // Fallback: show alert with text to copy manually
+        btn.textContent = 'Failed';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+        alert('Copy this command:\n\n' + text);
+      }
+
+      document.body.removeChild(textarea);
+    }
+
+    // Copy SSH keygen command
+    window.copyCommand = function() {
+      const cmd = document.getElementById('sshKeygenCmd').textContent;
+      const btn = document.getElementById('copyCommandBtn');
+      copyToClipboard(cmd, btn);
+    };
+
+    // Copy ssh-copy-id command (with current username/host)
+    window.copyCommand2 = function() {
+      const username = document.getElementById('sshUsername').value || 'user';
+      const host = document.getElementById('sshHost').value || 'server';
+      const cmd = `ssh-copy-id -i ~/.ssh/streamdeck_key.pub ${username}@${host}`;
+      document.getElementById('sshCopyIdCmd').textContent = cmd;
+      const btn = document.getElementById('copyCommandBtn2');
+      copyToClipboard(cmd, btn);
+    };
+
+    // Update ssh-copy-id command when username/host changes
+    function updateSshCopyIdCmd() {
+      const username = document.getElementById('sshUsername').value || 'user';
+      const host = document.getElementById('sshHost').value || 'server';
+      document.getElementById('sshCopyIdCmd').textContent = `ssh-copy-id -i ~/.ssh/streamdeck_key.pub ${username}@${host}`;
+    }
+
+    function getFormData() {
+      return {
+        name: document.getElementById('serverName').value,
+        isDefault: document.getElementById('isDefault').checked,
+        connectionType: connectionType,
+        sshHost: document.getElementById('sshHost').value,
+        sshPort: parseInt(document.getElementById('sshPort').value) || 22,
+        sshUsername: document.getElementById('sshUsername').value,
+        sshPassword: document.getElementById('sshPassword').value,
+        sshPrivateKey: document.getElementById('sshPrivateKey').value,
+        sshKeyPath: document.getElementById('sshKeyPath').value,
+        backupAddresses: backupAddresses.filter(a => a.trim()),
+        dockerHost: document.getElementById('dockerHost').value,
+        dockerPort: parseInt(document.getElementById('dockerPort').value) || 2375,
+        dockerCertPath: document.getElementById('dockerCertPath').value,
+        connectionTimeout: parseInt(document.getElementById('connectionTimeout').value) || 30,
+        keepAlive: document.getElementById('keepAlive').checked
+      };
+    }
+
+    function saveAllSettings() {
+      if (window.opener) {
+        window.opener.postMessage({
+          action: 'saveSettings',
+          settings: { servers: servers }
+        }, '*');
+      }
+    }
+
+    function loadSettings() {
+      if (window.opener) {
+        window.opener.postMessage({ action: 'requestSettings' }, '*');
+      }
+    }
+
+    // Listen for messages
     window.addEventListener('message', (event) => {
+      if (event.data.type === 'settingsData') {
+        const settings = event.data.settings;
+        if (settings) {
+          // Handle old single-server format migration
+          if (settings.servers) {
+            servers = settings.servers;
+          } else if (settings.sshHost || settings.dockerHost) {
+            // Migrate old format
+            servers = [{
+              id: 'server_migrated',
+              name: 'Default Server',
+              isDefault: true,
+              connectionType: settings.connectionType || 'ssh',
+              sshHost: settings.sshHost || '',
+              sshPort: settings.sshPort || 22,
+              sshUsername: settings.sshUsername || '',
+              sshPassword: settings.sshPassword || '',
+              sshPrivateKey: settings.sshPrivateKey || '',
+              sshKeyPath: settings.sshKeyPath || '',
+              dockerHost: settings.dockerHost || '',
+              dockerPort: settings.dockerPort || 2375,
+              dockerCertPath: settings.dockerCertPath || '',
+              connectionTimeout: settings.connectionTimeout || 30,
+              keepAlive: settings.keepAlive !== false
+            }];
+          }
+          renderServerList();
+        }
+      }
+
       if (event.data.type === 'testResult') {
         if (event.data.status === 'success') {
           showStatus(event.data.message, 'success');
@@ -437,82 +983,22 @@
           showStatus(event.data.message, 'error');
         }
       }
-      // Handle settings response from parent window
-      if (event.data.type === 'settingsData') {
-        applySettings(event.data.settings);
-      }
     });
-
-    // Save settings
-    document.getElementById('saveSettings').addEventListener('click', () => {
-      saveSettings();
-      showStatus('Settings saved!', 'success');
-    });
-
-    function getSettings() {
-      return {
-        connectionType: connectionType,
-        sshHost: document.getElementById('sshHost').value,
-        sshPort: parseInt(document.getElementById('sshPort').value) || 22,
-        sshUsername: document.getElementById('sshUsername').value,
-        sshPassword: document.getElementById('sshPassword').value,
-        sshPrivateKey: document.getElementById('sshPrivateKey').value,
-        dockerHost: document.getElementById('dockerHost').value,
-        dockerPort: parseInt(document.getElementById('dockerPort').value) || 2375,
-        dockerCertPath: document.getElementById('dockerCertPath').value,
-        connectionTimeout: parseInt(document.getElementById('connectionTimeout').value) || 30,
-        keepAlive: document.getElementById('keepAlive').checked
-      };
-    }
-
-    function saveSettings() {
-      const settings = getSettings();
-      // SECURITY: Don't store credentials in localStorage - only use Stream Deck's secure storage
-
-      // Communicate with Stream Deck via parent window
-      if (window.opener) {
-        window.opener.postMessage({ action: 'saveSettings', settings: settings }, '*');
-      }
-    }
-
-    function loadSettings() {
-      // SECURITY: Request settings from parent window instead of localStorage
-      if (window.opener) {
-        window.opener.postMessage({ action: 'requestSettings' }, '*');
-      }
-    }
-
-    function applySettings(settings) {
-      if (!settings) return;
-
-      try {
-        connectionType = settings.connectionType || 'ssh';
-        document.querySelectorAll('.conn-tab').forEach(tab => {
-          tab.classList.toggle('active', tab.dataset.type === connectionType);
-        });
-        document.getElementById('ssh-settings').classList.toggle('hidden', connectionType !== 'ssh');
-        document.getElementById('docker-settings').classList.toggle('hidden', connectionType !== 'docker-api');
-
-        document.getElementById('sshHost').value = settings.sshHost || '';
-        document.getElementById('sshPort').value = settings.sshPort || 22;
-        document.getElementById('sshUsername').value = settings.sshUsername || '';
-        document.getElementById('sshPassword').value = settings.sshPassword || '';
-        document.getElementById('sshPrivateKey').value = settings.sshPrivateKey || '';
-        document.getElementById('dockerHost').value = settings.dockerHost || '';
-        document.getElementById('dockerPort').value = settings.dockerPort || 2375;
-        document.getElementById('dockerCertPath').value = settings.dockerCertPath || '';
-        document.getElementById('connectionTimeout').value = settings.connectionTimeout || 30;
-        document.getElementById('keepAlive').checked = settings.keepAlive !== false;
-      } catch (e) {
-        console.error('Failed to apply settings:', e);
-      }
-    }
 
     function showStatus(message, type) {
       const status = document.getElementById('status');
       status.textContent = message;
       status.className = 'status show ' + type;
     }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+
+      // Update ssh-copy-id command when username/host changes
+      document.getElementById('sshUsername').addEventListener('input', updateSshCopyIdCmd);
+      document.getElementById('sshHost').addEventListener('input', updateSshCopyIdCmd);
+    });
   </script>
 </body>
 </html>

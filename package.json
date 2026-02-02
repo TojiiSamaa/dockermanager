@@ -1,6 +1,6 @@
 {
   "name": "streamdeck-docker-manager",
-  "version": "1.0.0",
+  "version": "2.3.1",
   "description": "Stream Deck plugin to manage Docker containers on Unraid/Linux servers",
   "type": "module",
   "main": "io.deckops.containers.sdPlugin/bin/plugin.js",
@@ -8,9 +8,15 @@
     "build": "rollup -c --bundleConfigAsCjs",
     "watch": "rollup -c --bundleConfigAsCjs -w",
     "dev": "npm run watch",
-    "pack": "npm run build && streamdeck pack io.deckops.containers.sdPlugin",
+    "pack": "npm run build && streamdeck pack io.deckops.containers.sdPlugin --force",
     "link": "streamdeck link io.deckops.containers.sdPlugin",
-    "restart": "streamdeck restart io.deckops.containers"
+    "restart": "streamdeck restart io.deckops.containers",
+    "version:patch": "node scripts/version-bump.cjs patch",
+    "version:minor": "node scripts/version-bump.cjs minor",
+    "version:major": "node scripts/version-bump.cjs major",
+    "version:sync": "node scripts/version-bump.cjs sync",
+    "release": "node scripts/release.cjs patch",
+    "release:minor": "node scripts/release.cjs minor"
   },
   "keywords": [
     "streamdeck",
@@ -37,6 +43,7 @@
   "dependencies": {
     "@elgato/streamdeck": "^0.3.0",
     "dockerode": "^4.0.2",
+    "lucide-static": "^0.563.0",
     "ssh2": "^1.15.0",
     "ws": "^8.16.0"
   }

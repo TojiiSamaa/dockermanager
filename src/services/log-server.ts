@@ -12,6 +12,7 @@ interface LogServerInstance {
   port: number;
   containerId: string;
   containerName: string;
+  serverName?: string;
   clients: Set<WebSocket>;
   refreshInterval: NodeJS.Timeout | null;
   windowFormat: "small" | "full";
@@ -65,7 +66,8 @@ class LogServerManager {
     containerName: string,
     containerId: string,
     port: number,
-    windowFormat: "small" | "full"
+    windowFormat: "small" | "full",
+    serverName?: string
   ): string {
     const escapedName = containerName
       .replace(/&/g, "&amp;")
@@ -78,7 +80,7 @@ class LogServerManager {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Logs: ${escapedName}</title>
+  <title>${escapedName} - Logs Docker</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -104,20 +106,25 @@ class LogServerManager {
       display: flex;
       align-items: center;
       gap: 10px;
-      ${isSmallWindow ? "flex-basis: 100%; justify-content: space-between;" : ""}
+      ${isSmallWindow ? "flex-basis: 100%; justify-content: space-between;" : "flex: 1;"}
     }
     .header h1 {
-      font-size: ${isSmallWindow ? "12px" : "14px"};
+      font-size: ${isSmallWindow ? "13px" : "16px"};
       font-weight: 600;
       color: #0db7ed;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .container-name {
-      font-size: ${isSmallWindow ? "11px" : "14px"};
-      color: #E8E8E8;
-      background: rgba(255,255,255,0.1);
-      padding: 4px 10px;
-      border-radius: 4px;
-      max-width: ${isSmallWindow ? "150px" : "300px"};
+      font-size: ${isSmallWindow ? "13px" : "16px"};
+      color: #FFFFFF;
+      background: rgba(13,183,237,0.2);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      border: 1px solid rgba(13,183,237,0.4);
+      max-width: ${isSmallWindow ? "200px" : "400px"};
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -163,10 +170,11 @@ class LogServerManager {
       margin-left: -8px;
     }
     .log-line:hover { background: rgba(255,255,255,0.05); }
-    .log-error { color: #F44336; border-left-color: #F44336; }
-    .log-warn { color: #FF9800; border-left-color: #FF9800; }
+    .log-error { color: #F44336; border-left-color: #F44336; background: rgba(244,67,54,0.05); }
+    .log-warn { color: #FF9800; border-left-color: #FF9800; background: rgba(255,152,0,0.05); }
     .log-info { color: #2196F3; border-left-color: #2196F3; }
     .log-debug { color: #9E9E9E; border-left-color: #9E9E9E; }
+    .connection-error { color: #F44336; font-weight: bold; font-size: 14px; padding: 20px; text-align: center; background: rgba(244,67,54,0.1); border-radius: 8px; margin: 20px; }
     .status-bar {
       background: rgba(0,0,0,0.5);
       border-top: 1px solid rgba(255,255,255,0.1);
@@ -225,13 +233,17 @@ class LogServerManager {
 <body>
   <div class="header">
     <div class="header-left">
-      <h1>Container Logs</h1>
-      <span class="container-name" title="${escapedName}">${escapedName}</span>
+      <h1>
+        🐳 Container Logs:
+        <span class="container-name" title="${escapedName}">${escapedName}</span>
+        ${serverName ? `<span style="font-size: 12px; color: #888; font-weight: normal;">@ ${serverName.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>` : ""}
+      </h1>
     </div>
     <div class="header-actions">
       <button class="btn" onclick="toggleSearch()" title="Ctrl+F">Search</button>
       <button class="btn active" onclick="toggleAutoScroll()" id="autoScrollBtn">Auto-scroll</button>
       <button class="btn" onclick="scrollToBottom()" title="Jump to bottom">Bottom</button>
+      <button class="btn" onclick="copyAllLogs()" title="Copy all logs to clipboard">Copy</button>
       <button class="btn" onclick="clearDisplay()" title="Clear display only">Clear</button>
     </div>
   </div>
@@ -500,6 +512,24 @@ class LogServerManager {
       displayLogs();
     }
 
+    function copyAllLogs() {
+      const text = allLogs.join('\\n');
+      navigator.clipboard.writeText(text).then(() => {
+        // Show feedback
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.background = 'rgba(76,175,80,0.3)';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = '';
+        }, 1500);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy logs to clipboard');
+      });
+    }
+
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
       if (e.ctrlKey && e.key === 'f') {
@@ -532,7 +562,8 @@ class LogServerManager {
     containerName: string,
     logLines: number = 200,
     refreshRate: number = 2,
-    windowFormat: "small" | "full" = "full"
+    windowFormat: "small" | "full" = "full",
+    serverName?: string
   ): Promise<{ port: number; url: string } | null> {
     // Check if we already have a server for this container
     const existingServer = this.servers.get(containerId);
@@ -554,7 +585,7 @@ class LogServerManager {
       const httpServer = http.createServer((req, res) => {
         if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(this.generateLogViewerHtml(containerName, containerId, port, windowFormat));
+          res.end(this.generateLogViewerHtml(containerName, containerId, port, windowFormat, serverName));
         } else if (req.url === "/health") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ status: "ok", clients: clients.size }));
@@ -581,9 +612,19 @@ class LogServerManager {
           };
           ws.send(JSON.stringify(message));
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          pluginLogger.error(`Failed to get initial logs for ${containerName}: ${errorMessage}`, "log-server");
+
+          // Send a more user-friendly error message
           const errorMsg: LogMessage = {
             type: "error",
-            message: `Failed to get initial logs: ${error instanceof Error ? error.message : "Unknown error"}`,
+            message: `❌ Cannot connect to container "${containerName}".\n\n` +
+                     `Error: ${errorMessage}\n\n` +
+                     `Possible causes:\n` +
+                     `• Container name may be incorrect (check spelling, case-sensitive)\n` +
+                     `• Container might not exist on this server\n` +
+                     `• Server connection may have failed\n\n` +
+                     `Please verify the container name in the Stream Deck action settings.`,
             timestamp: Date.now()
           };
           ws.send(JSON.stringify(errorMsg));
@@ -637,7 +678,22 @@ class LogServerManager {
             }
           });
         } catch (error) {
-          pluginLogger.error(`Failed to refresh logs for ${containerName}: ${error instanceof Error ? error.message : "Unknown error"}`, "log-server");
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          pluginLogger.error(`Failed to refresh logs for ${containerName}: ${errorMessage}`, "log-server");
+
+          // Send error to connected clients
+          const errorMsg: LogMessage = {
+            type: "error",
+            message: `Failed to fetch logs: ${errorMessage}`,
+            timestamp: Date.now()
+          };
+          const errorStr = JSON.stringify(errorMsg);
+
+          clients.forEach((client) => {
+            if (client.readyState === WS_OPEN) {
+              client.send(errorStr);
+            }
+          });
         }
       }, refreshRate * 1000);
 
@@ -648,6 +704,7 @@ class LogServerManager {
         port,
         containerId,
         containerName,
+        serverName,
         clients,
         refreshInterval,
         windowFormat

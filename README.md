@@ -110,6 +110,18 @@ npm run pack
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development documentation.
 
+### Development Workflows
+
+**Quick iterations (testing):**
+- 📝 [PROCESS-ACCELERATED.md](PROCESS-ACCELERATED.md) - Fast workflow for daily development
+  - Modify → Build → Package → Test locally
+  - Time: 2-5 minutes
+
+**Full release (production):**
+- 📋 [PROCESS-STANDARD.md](PROCESS-STANDARD.md) - Complete workflow for public releases
+  - Audit → Tests → Build → Package → GitHub → Marketplace
+  - Time: 1-2 hours
+
 ```bash
 # Watch mode (auto-rebuild)
 npm run watch

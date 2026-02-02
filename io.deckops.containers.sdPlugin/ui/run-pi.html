@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Docker Run</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #2D2D2D;
+      color: #E8E8E8;
+      margin: 0;
+      padding: 12px;
+    }
+    .section {
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #9E9E9E;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      color: #BDBDBD;
+      margin-bottom: 4px;
+    }
+    input[type="text"], select, textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #1A1A1A;
+      color: #E8E8E8;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+      font-family: monospace;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #0078D4;
+    }
+    .info-box {
+      background: #1A1A1A;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+    .info-text {
+      font-size: 11px;
+      color: #9E9E9E;
+      line-height: 1.4;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #BDBDBD;
+      cursor: pointer;
+    }
+    .checkbox-label input {
+      width: auto;
+    }
+    .divider {
+      height: 1px;
+      background: #444;
+      margin: 16px 0;
+    }
+    .hint {
+      font-size: 10px;
+      color: #757575;
+      margin-top: 4px;
+    }
+    .required {
+      color: #E74C3C;
+    }
+    .two-col {
+      display: flex;
+      gap: 8px;
+    }
+    .two-col > * {
+      flex: 1;
+    }
+    .parse-btn {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #0078D4, #00BCF2);
+      border: none;
+      border-radius: 4px;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+    .parse-btn:hover {
+      background: linear-gradient(135deg, #005a9e, #0099cc);
+      transform: translateY(-1px);
+    }
+    .parse-btn:active {
+      transform: translateY(0);
+    }
+    .parse-btn.success {
+      background: linear-gradient(135deg, #27AE60, #2ECC71);
+    }
+    #rawCommand {
+      font-family: monospace;
+      font-size: 11px;
+      min-height: 80px;
+    }
+  </style>
+</head>
+<body>
+  <div class="section">
+    <div class="section-title">Serveur</div>
+    <div class="form-group">
+      <select id="serverSelect">
+        <option value="">Serveur par défaut</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">🚀 Commande Docker Run Complète</div>
+    <div class="form-group">
+      <label class="form-label">Coller votre commande ici</label>
+      <textarea id="rawCommand" rows="4" placeholder="docker run -d --name my-container -p 8080:80 -v /data:/app nginx:latest"></textarea>
+      <div class="hint">Collez une commande docker run complète - les champs ci-dessous seront remplis automatiquement</div>
+    </div>
+    <button id="parseBtn" class="parse-btn">🔄 Parser la commande</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Configuration Docker Run</div>
+
+    <div class="form-group">
+      <label class="form-label">Nom de l'image <span class="required">*</span></label>
+      <input type="text" id="imageName" placeholder="nginx:latest, ubuntu:22.04...">
+      <div class="hint">Format: [registry/]image[:tag]</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Nom du container (optionnel)</label>
+      <input type="text" id="containerName" placeholder="my-container">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Répertoire de travail (optionnel)</label>
+      <input type="text" id="workingDirectory" placeholder="/app">
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Réseau</div>
+
+    <div class="form-group">
+      <label class="form-label">Ports (mapping)</label>
+      <textarea id="ports" placeholder="8080:80&#10;443:443"></textarea>
+      <div class="hint">Un port par ligne, format: hostPort:containerPort</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Réseau Docker</label>
+      <input type="text" id="network" placeholder="bridge, host, my-network...">
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Volumes</div>
+
+    <div class="form-group">
+      <label class="form-label">Volumes (mapping)</label>
+      <textarea id="volumes" placeholder="/host/path:/container/path&#10;my-volume:/data"></textarea>
+      <div class="hint">Un volume par ligne, format: hostPath:containerPath</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Environnement</div>
+
+    <div class="form-group">
+      <label class="form-label">Variables d'environnement</label>
+      <textarea id="envVars" placeholder="KEY=value&#10;ANOTHER_KEY=another_value"></textarea>
+      <div class="hint">Une variable par ligne, format: KEY=value</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Options</div>
+
+    <div class="form-group">
+      <label class="form-label">Politique de redémarrage</label>
+      <select id="restartPolicy">
+        <option value="no">Non (no)</option>
+        <option value="always">Toujours (always)</option>
+        <option value="unless-stopped">Sauf si arrêté (unless-stopped)</option>
+        <option value="on-failure">Sur erreur (on-failure)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="detached" checked>
+        <span>Mode détaché (arrière-plan)</span>
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="removeOnExit">
+        <span>Supprimer à l'arrêt (--rm)</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Commande</div>
+
+    <div class="form-group">
+      <label class="form-label">Commande personnalisée (optionnel)</label>
+      <input type="text" id="command" placeholder="bash -c 'echo hello'">
+      <div class="hint">Remplace la commande par défaut de l'image</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">Affichage</div>
+
+    <div class="form-group">
+      <label class="form-label">Nom personnalisé (optionnel)</label>
+      <input type="text" id="displayName" placeholder="Nom sur le bouton...">
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="showTitle" checked>
+        <span>Afficher le titre</span>
+      </label>
+    </div>
+  </div>
+
+  <script>
+    let $SD;
+    let globalSettings = {};
+    let currentSettings = {};
+    let pluginUUID;
+
+    function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo, inActionInfo) {
+      const actionInfo = JSON.parse(inActionInfo);
+      currentSettings = actionInfo.payload.settings || {};
+      pluginUUID = inPluginUUID;
+
+      $SD = new WebSocket(`ws://127.0.0.1:${inPort}`);
+
+      $SD.onopen = function() {
+        $SD.send(JSON.stringify({
+          event: inRegisterEvent,
+          uuid: inPluginUUID
+        }));
+
+        // Request global settings to get server list
+        $SD.send(JSON.stringify({
+          event: 'getGlobalSettings',
+          context: inPluginUUID
+        }));
+
+        loadSettings(currentSettings);
+      };
+
+      $SD.onmessage = function(evt) {
+        const data = JSON.parse(evt.data);
+        if (data.event === "didReceiveSettings") {
+          currentSettings = data.payload.settings || {};
+          loadSettings(currentSettings);
+        }
+        if (data.event === "didReceiveGlobalSettings") {
+          globalSettings = data.payload.settings || {};
+          populateServerDropdown();
+        }
+      };
+
+      setupEventListeners(inPluginUUID);
+    }
+
+    function populateServerDropdown() {
+      const select = document.getElementById('serverSelect');
+      const servers = globalSettings.servers || [];
+
+      // If there are servers configured, show them directly
+      if (servers.length > 0) {
+        select.innerHTML = '';
+        servers.forEach(server => {
+          const option = document.createElement('option');
+          option.value = server.id;
+          option.textContent = server.name + (server.isDefault ? ' (défaut)' : '');
+          select.appendChild(option);
+        });
+      } else {
+        select.innerHTML = '<option value="">Aucun serveur configuré</option>';
+      }
+
+      // Restore selection - if no serverId set, use default server
+      if (currentSettings.serverId) {
+        select.value = currentSettings.serverId;
+      } else if (servers.length > 0) {
+        const defaultServer = servers.find(s => s.isDefault) || servers[0];
+        if (defaultServer) {
+          select.value = defaultServer.id;
+        }
+      }
+    }
+
+    function loadSettings(settings) {
+      document.getElementById("serverSelect").value = settings.serverId || "";
+      document.getElementById("rawCommand").value = settings.rawCommand || "";
+      document.getElementById("imageName").value = settings.imageName || "";
+      document.getElementById("containerName").value = settings.containerName || "";
+      document.getElementById("workingDirectory").value = settings.workingDirectory || "";
+      document.getElementById("ports").value = settings.ports || "";
+      document.getElementById("volumes").value = settings.volumes || "";
+      document.getElementById("envVars").value = settings.envVars || "";
+      document.getElementById("network").value = settings.network || "";
+      document.getElementById("restartPolicy").value = settings.restartPolicy || "no";
+      document.getElementById("detached").checked = settings.detached !== false;
+      document.getElementById("removeOnExit").checked = settings.removeOnExit || false;
+      document.getElementById("command").value = settings.command || "";
+      document.getElementById("displayName").value = settings.displayName || "";
+      document.getElementById("showTitle").checked = settings.showTitle !== false;
+    }
+
+    function setupEventListeners(uuid) {
+      const fields = [
+        "serverSelect", "rawCommand", "imageName", "containerName", "workingDirectory",
+        "ports", "volumes", "envVars", "network", "restartPolicy",
+        "detached", "removeOnExit", "command", "displayName", "showTitle"
+      ];
+
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el.type === "checkbox") {
+          el.addEventListener("change", () => saveSettings(uuid));
+        } else if (el.tagName === "TEXTAREA") {
+          el.addEventListener("input", () => saveSettings(uuid));
+        } else if (el.tagName === "SELECT") {
+          el.addEventListener("change", () => saveSettings(uuid));
+        } else {
+          el.addEventListener("input", () => saveSettings(uuid));
+        }
+      });
+
+      // Parse button
+      document.getElementById("parseBtn").addEventListener("click", () => {
+        parseDockerRunCommand(uuid);
+      });
+    }
+
+    /**
+     * Parse a docker run command and fill in all the fields
+     */
+    function parseDockerRunCommand(uuid) {
+      const rawCommand = document.getElementById("rawCommand").value.trim();
+      if (!rawCommand) return;
+
+      // Reset fields
+      document.getElementById("imageName").value = "";
+      document.getElementById("containerName").value = "";
+      document.getElementById("workingDirectory").value = "";
+      document.getElementById("ports").value = "";
+      document.getElementById("volumes").value = "";
+      document.getElementById("envVars").value = "";
+      document.getElementById("network").value = "";
+      document.getElementById("restartPolicy").value = "no";
+      document.getElementById("detached").checked = false;
+      document.getElementById("removeOnExit").checked = false;
+      document.getElementById("command").value = "";
+
+      // Tokenize the command properly (handle quoted strings)
+      const tokens = tokenizeCommand(rawCommand);
+
+      const ports = [];
+      const volumes = [];
+      const envVars = [];
+      let imageName = "";
+      let containerCommand = [];
+      let foundImage = false;
+
+      let i = 0;
+      while (i < tokens.length) {
+        const token = tokens[i];
+
+        // Skip "docker" and "run"
+        if (token === "docker" || token === "run") {
+          i++;
+          continue;
+        }
+
+        // Detached mode
+        if (token === "-d" || token === "--detach") {
+          document.getElementById("detached").checked = true;
+          i++;
+          continue;
+        }
+
+        // Remove on exit
+        if (token === "--rm") {
+          document.getElementById("removeOnExit").checked = true;
+          i++;
+          continue;
+        }
+
+        // Interactive/TTY (skip, not in our UI)
+        if (token === "-it" || token === "-i" || token === "-t" || token === "--interactive" || token === "--tty") {
+          i++;
+          continue;
+        }
+
+        // Container name
+        if (token === "--name" && i + 1 < tokens.length) {
+          document.getElementById("containerName").value = tokens[i + 1];
+          i += 2;
+          continue;
+        }
+
+        // Port mapping
+        if ((token === "-p" || token === "--publish") && i + 1 < tokens.length) {
+          ports.push(tokens[i + 1]);
+          i += 2;
+          continue;
+        }
+
+        // Volume mapping
+        if ((token === "-v" || token === "--volume") && i + 1 < tokens.length) {
+          volumes.push(tokens[i + 1]);
+          i += 2;
+          continue;
+        }
+
+        // Environment variable
+        if ((token === "-e" || token === "--env") && i + 1 < tokens.length) {
+          envVars.push(tokens[i + 1]);
+          i += 2;
+          continue;
+        }
+
+        // Working directory
+        if ((token === "-w" || token === "--workdir") && i + 1 < tokens.length) {
+          document.getElementById("workingDirectory").value = tokens[i + 1];
+          i += 2;
+          continue;
+        }
+
+        // Network
+        if ((token === "--network" || token === "--net") && i + 1 < tokens.length) {
+          document.getElementById("network").value = tokens[i + 1];
+          i += 2;
+          continue;
+        }
+
+        // Restart policy
+        if (token === "--restart" && i + 1 < tokens.length) {
+          const policy = tokens[i + 1];
+          if (["no", "always", "unless-stopped", "on-failure"].includes(policy) || policy.startsWith("on-failure:")) {
+            document.getElementById("restartPolicy").value = policy.startsWith("on-failure") ? "on-failure" : policy;
+          }
+          i += 2;
+          continue;
+        }
+
+        // Handle combined short options like -dit
+        if (token.startsWith("-") && !token.startsWith("--") && token.length > 2) {
+          if (token.includes("d")) document.getElementById("detached").checked = true;
+          i++;
+          continue;
+        }
+
+        // Skip other flags with values
+        if (token.startsWith("-") && i + 1 < tokens.length && !tokens[i + 1].startsWith("-")) {
+          // Unknown flag with value, skip both
+          i += 2;
+          continue;
+        }
+
+        // Skip other flags without values
+        if (token.startsWith("-")) {
+          i++;
+          continue;
+        }
+
+        // This should be the image name or command
+        if (!foundImage) {
+          imageName = token;
+          foundImage = true;
+          i++;
+          continue;
+        }
+
+        // Everything after image is the command
+        containerCommand.push(token);
+        i++;
+      }
+
+      // Fill in the parsed values
+      document.getElementById("imageName").value = imageName;
+      document.getElementById("ports").value = ports.join("\n");
+      document.getElementById("volumes").value = volumes.join("\n");
+      document.getElementById("envVars").value = envVars.join("\n");
+      document.getElementById("command").value = containerCommand.join(" ");
+
+      // Visual feedback
+      const btn = document.getElementById("parseBtn");
+      btn.textContent = "✅ Commande parsée !";
+      btn.classList.add("success");
+      setTimeout(() => {
+        btn.textContent = "🔄 Parser la commande";
+        btn.classList.remove("success");
+      }, 2000);
+
+      // Save settings
+      saveSettings(uuid);
+    }
+
+    /**
+     * Tokenize a command string, properly handling quoted strings
+     */
+    function tokenizeCommand(cmd) {
+      const tokens = [];
+      let current = "";
+      let inSingleQuote = false;
+      let inDoubleQuote = false;
+      let escape = false;
+
+      for (let i = 0; i < cmd.length; i++) {
+        const char = cmd[i];
+
+        if (escape) {
+          current += char;
+          escape = false;
+          continue;
+        }
+
+        if (char === "\\") {
+          escape = true;
+          continue;
+        }
+
+        if (char === "'" && !inDoubleQuote) {
+          inSingleQuote = !inSingleQuote;
+          continue;
+        }
+
+        if (char === '"' && !inSingleQuote) {
+          inDoubleQuote = !inDoubleQuote;
+          continue;
+        }
+
+        if ((char === " " || char === "\t" || char === "\n") && !inSingleQuote && !inDoubleQuote) {
+          if (current) {
+            tokens.push(current);
+            current = "";
+          }
+          continue;
+        }
+
+        current += char;
+      }
+
+      if (current) {
+        tokens.push(current);
+      }
+
+      return tokens;
+    }
+
+    function saveSettings(uuid) {
+      const settings = {
+        serverId: document.getElementById("serverSelect").value || undefined,
+        rawCommand: document.getElementById("rawCommand").value || undefined,
+        imageName: document.getElementById("imageName").value,
+        containerName: document.getElementById("containerName").value || undefined,
+        workingDirectory: document.getElementById("workingDirectory").value || undefined,
+        ports: document.getElementById("ports").value || undefined,
+        volumes: document.getElementById("volumes").value || undefined,
+        envVars: document.getElementById("envVars").value || undefined,
+        network: document.getElementById("network").value || undefined,
+        restartPolicy: document.getElementById("restartPolicy").value,
+        detached: document.getElementById("detached").checked,
+        removeOnExit: document.getElementById("removeOnExit").checked,
+        command: document.getElementById("command").value || undefined,
+        displayName: document.getElementById("displayName").value || undefined,
+        showTitle: document.getElementById("showTitle").checked
+      };
+
+      $SD.send(JSON.stringify({
+        event: "setSettings",
+        context: uuid,
+        payload: settings
+      }));
+    }
+  </script>
+</body>
+</html>

@@ -8,12 +8,14 @@ import { exec } from "child_process";
 
 interface PIMessage {
   action?: string;
+  serverId?: string;
 }
 
 interface LogsSettings {
   containerId: string;
   containerName: string;
   displayName?: string;
+  serverId?: string; // Server ID to use for this action
   logLines?: number;
   refreshInterval?: number;
   streamingMode?: boolean;
@@ -23,6 +25,7 @@ interface LogsSettings {
   iconSource?: "default" | "file" | "url";
   iconUrl?: string;
   customIconBase64?: string;
+  backgroundColor?: string;
   // Display settings
   showTitle?: boolean; // Default true
 }
@@ -33,26 +36,59 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
   // Version counter to prevent race conditions when settings change
   private settingsVersion: Map<string, number> = new Map();
 
+  /**
+   * Ensure connection to the correct server
+   */
+  private async ensureConnected(serverId?: string): Promise<boolean> {
+    let config;
+    if (serverId) {
+      config = globalSettings.getServerById(serverId);
+      pluginLogger.info(`Connecting to server by ID: ${serverId}`, "logs");
+    } else {
+      config = globalSettings.getServerConfig();
+      pluginLogger.info(`Connecting to default server`, "logs");
+    }
+
+    if (!config) {
+      pluginLogger.error(`No server config found for serverId: ${serverId}`, "logs");
+      return false;
+    }
+
+    // IMPORTANT: Configure and connect to THIS specific server
+    // This ensures all subsequent docker commands use the correct connection
+    await dockerService.configure(config);
+    const connected = await dockerService.connect();
+
+    if (connected) {
+      const host = dockerService.getActiveHost();
+      pluginLogger.info(`Successfully connected to: ${host}`, "logs");
+    } else {
+      pluginLogger.error(`Failed to connect to server: ${config.sshHost || config.dockerHost}`, "logs");
+    }
+
+    return connected;
+  }
+
   override async onWillAppear(ev: WillAppearEvent<LogsSettings>): Promise<void> {
-    const { containerId, containerName, displayName, refreshInterval = 10, customIconBase64, showTitle = true } = ev.payload.settings;
+    const { containerId, containerName, displayName, serverId, refreshInterval = 10, customIconBase64, backgroundColor, showTitle = true } = ev.payload.settings;
 
     // Initialize version counter
     const version = 1;
     this.settingsVersion.set(ev.action.id, version);
 
     if (!containerId && !containerName) {
-      await ev.action.setTitle("Config\nrequired");
+      await ev.action.setTitle("Config\nrequise");
       return;
     }
 
     const identifier = containerId || containerName;
-    await this.updateDisplay(ev.action, identifier, displayName, customIconBase64, showTitle, version);
+    await this.updateDisplay(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, version);
 
     // Set up refresh interval
     const intervalId = setInterval(async () => {
       const currentVersion = this.settingsVersion.get(ev.action.id);
       if (currentVersion === version) {
-        await this.updateDisplay(ev.action, identifier, displayName, customIconBase64, showTitle, version);
+        await this.updateDisplay(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, version);
       }
     }, refreshInterval * 1000);
 
@@ -79,6 +115,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
       containerId,
       containerName,
       displayName,
+      serverId,
       logLines = 200,
       streamingMode = true,
       streamingRefreshRate = 2,
@@ -91,14 +128,32 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
     }
 
     try {
-      // Ensure connected
-      if (!dockerService.isConnected()) {
-        const config = globalSettings.getServerConfig();
-        if (config) {
-          await dockerService.configure(config);
-          await dockerService.connect();
-        } else {
-          return;
+      // Ensure connected to the correct server
+      const connected = await this.ensureConnected(serverId);
+      if (!connected) {
+        pluginLogger.error("Failed to connect to server", "logs");
+        await ev.action.showAlert();
+        return;
+      }
+
+      // Verify container exists before opening logs
+      try {
+        const state = await dockerService.getContainerState(identifier);
+        pluginLogger.info(`Container ${identifier} exists, state: ${state}`, "logs");
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        pluginLogger.error(`Container not found: ${identifier} - ${errorMsg}`, "logs");
+        await ev.action.showAlert();
+        await ev.action.setTitle(`Pas\ntrouvé`);
+        return;
+      }
+
+      // Get server name for display
+      let serverName = "Default Server";
+      if (serverId) {
+        const serverConfig = globalSettings.getServerById(serverId);
+        if (serverConfig) {
+          serverName = serverConfig.name || serverConfig.sshHost || serverConfig.dockerHost || "Unknown Server";
         }
       }
 
@@ -108,11 +163,13 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
         displayName || identifier,
         logLines,
         streamingRefreshRate,
-        windowFormat
+        windowFormat,
+        serverName
       );
 
       if (!serverResult) {
         pluginLogger.error("Failed to create log server", "logs");
+        await ev.action.showAlert();
         return;
       }
 
@@ -120,9 +177,11 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
 
       // Open the browser to the log server URL
       this.openBrowser(serverResult.url);
+      await ev.action.showOk();
 
     } catch (error) {
       pluginLogger.error(`Failed to open logs: ${error instanceof Error ? error.message : "Unknown error"}`, "logs");
+      await ev.action.showAlert();
     }
   }
 
@@ -141,7 +200,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
   }
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<LogsSettings>): Promise<void> {
-    const { containerId, containerName, displayName, refreshInterval = 10, customIconBase64, showTitle = true } = ev.payload.settings;
+    const { containerId, containerName, displayName, serverId, refreshInterval = 10, customIconBase64, backgroundColor, showTitle = true } = ev.payload.settings;
     const identifier = containerId || containerName;
 
     // Increment version to cancel any pending operations from previous settings
@@ -149,7 +208,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
     this.settingsVersion.set(ev.action.id, currentVersion);
 
     if (!identifier) {
-      await ev.action.setTitle("Config\nrequired");
+      await ev.action.setTitle("Config\nrequise");
       return;
     }
 
@@ -159,13 +218,13 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
       clearInterval(existingInterval);
     }
 
-    await this.updateDisplay(ev.action, identifier, displayName, customIconBase64, showTitle, currentVersion);
+    await this.updateDisplay(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, currentVersion);
 
     // Set new interval
     const intervalId = setInterval(async () => {
       const checkVersion = this.settingsVersion.get(ev.action.id);
       if (checkVersion === currentVersion) {
-        await this.updateDisplay(ev.action, identifier, displayName, customIconBase64, showTitle, currentVersion);
+        await this.updateDisplay(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, currentVersion);
       }
     }, refreshInterval * 1000);
 
@@ -177,24 +236,39 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
 
     if (actionType === "listContainers") {
       try {
-        // Ensure connected
-        if (!dockerService.isConnected()) {
-          const config = globalSettings.getServerConfig();
-          console.log("Server config:", JSON.stringify(config));
+        const requestedServerId = ev.payload.serverId;
+        pluginLogger.info(`listContainers request for server: ${requestedServerId || 'default'}`, "logs");
 
-          if (!config) {
-            await ev.action.sendToPropertyInspector({
-              error: "No server configured. Click 'Configure Server Connection' first."
-            });
-            return;
+        // Get server config - use specific server if provided, otherwise default
+        let config;
+        if (requestedServerId) {
+          config = globalSettings.getServerById(requestedServerId);
+        } else {
+          config = globalSettings.getServerConfig();
+        }
+
+        if (!config) {
+          await ev.action.sendToPropertyInspector({
+            error: "No server configured. Click 'Manage Servers' first."
+          });
+          return;
+        }
+
+        // Check if we need to reconnect
+        const targetHost = config.sshHost || config.dockerHost;
+        const currentHost = dockerService.getActiveHost();
+        const needsReconnect = !dockerService.isConnected() || currentHost !== targetHost;
+
+        if (needsReconnect) {
+          if (dockerService.isConnected() && currentHost !== targetHost) {
+            await dockerService.disconnect();
           }
-
           await dockerService.configure(config);
           const connected = await dockerService.connect();
 
           if (!connected) {
             await ev.action.sendToPropertyInspector({
-              error: `SSH connection failed. Check host (${config.sshHost}), credentials, and network.`
+              error: `Connection failed to ${targetHost}. Check settings.`
             });
             return;
           }
@@ -203,7 +277,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
         const containers = await dockerService.listContainers();
         await ev.action.sendToPropertyInspector({ containers });
       } catch (error) {
-        console.error("Failed to list containers:", error);
+        pluginLogger.error(`Failed to list containers: ${error}`, "logs");
         await ev.action.sendToPropertyInspector({
           error: `Error: ${error instanceof Error ? error.message : "Unknown error"}`
         });
@@ -211,27 +285,18 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
     }
   }
 
-  private async updateDisplay(action: Action<LogsSettings>, identifier: string, displayName?: string, customIconBase64?: string, showTitle: boolean = true, version?: number): Promise<void> {
+  private async updateDisplay(action: Action<LogsSettings>, identifier: string, displayName?: string, serverId?: string, customIconBase64?: string, backgroundColor?: string, showTitle: boolean = true, version?: number): Promise<void> {
     try {
       // Check version before doing anything
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
         return; // Settings changed, abort
       }
 
-      if (!dockerService.isConnected()) {
-        const config = globalSettings.getServerConfig();
-        if (config) {
-          await dockerService.configure(config);
-          await dockerService.connect();
-        } else {
-          await action.setTitle("No\nserver");
-          return;
-        }
-      }
-
-      // Check version again after async operation
-      if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
-        return; // Settings changed, abort
+      // Ensure connected to the correct server
+      const connected = await this.ensureConnected(serverId);
+      if (!connected) {
+        await action.setTitle("Pas de\nserveur");
+        return;
       }
 
       const containerName = displayName || identifier;
@@ -256,8 +321,8 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
         healthState = "starting";
       }
 
-      // Generate icon with logs badge
-      const iconBase64 = await iconGenerator.generateLogsIcon(containerName, customIconBase64);
+      // Generate icon with logs badge and optional background color
+      const iconBase64 = await iconGenerator.generateLogsIcon(containerName, customIconBase64, { backgroundColor });
 
       // Final version check before setting image
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
@@ -281,7 +346,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
       pluginLogger.error(`Failed to update logs display: ${error instanceof Error ? error.message : "Unknown error"}`, "logs");
       // Only show error if version still matches
       if (version === undefined || this.settingsVersion.get(action.id) === version) {
-        await action.setTitle("Error");
+        await action.setTitle("Erreur");
       }
     }
   }

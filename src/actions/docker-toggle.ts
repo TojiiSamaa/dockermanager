@@ -4,9 +4,11 @@ import { globalSettings } from "../services/settings-manager";
 import { iconGenerator, ContainerState, HealthState } from "../services/icon-generator";
 import { pluginLogger } from "./debug-logs";
 import { exec } from "child_process";
+import { escapeURL, sanitizeClipboardText } from "../services/shell-escape";
 
 interface PIMessage {
   action?: string;
+  serverId?: string;  // Server ID to use for listContainers
 }
 
 type ActionType = "toggle" | "start" | "stop" | "restart" | "status" | "openUrl" | "copyToClipboard";
@@ -15,6 +17,7 @@ interface ToggleSettings {
   containerId: string;
   containerName: string;
   displayName?: string;
+  serverId?: string; // Server ID to use for this action
   action?: ActionType;
   refreshInterval?: number;
   // URL settings
@@ -51,7 +54,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
   private settingsVersion: Map<string, number> = new Map();
 
   override async onWillAppear(ev: WillAppearEvent<ToggleSettings>): Promise<void> {
-    const { containerId, containerName, displayName, refreshInterval = 5, customIconBase64, backgroundColor, showTitle = true } = ev.payload.settings;
+    const { containerId, containerName, displayName, serverId, refreshInterval = 5, customIconBase64, backgroundColor, showTitle = true } = ev.payload.settings;
 
     // Initialize version counter
     const version = 1;
@@ -76,10 +79,10 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
     }
 
     // Phase 1: Quick initial load - just get basic state and show icon immediately
-    await this.quickUpdateStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, version);
+    await this.quickUpdateStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, version);
 
     // Phase 2: Full health check in background (async, don't await)
-    this.updateContainerStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, version).then(() => {
+    this.updateContainerStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, version).then(() => {
       // Only mark as done if version still matches
       if (this.settingsVersion.get(ev.action.id) === version) {
         this.initialLoadDone.set(ev.action.id, true);
@@ -90,7 +93,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
     const intervalId = setInterval(async () => {
       const currentVersion = this.settingsVersion.get(ev.action.id);
       if (currentVersion === version) {
-        await this.updateContainerStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, version);
+        await this.updateContainerStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, version);
       }
     }, refreshInterval * 1000);
 
@@ -133,6 +136,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
       containerId,
       containerName,
       displayName,
+      serverId,
       action: actionType = "toggle",
       primaryUrl,
       longPressAction,
@@ -187,7 +191,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
         setTimeout(async () => {
           // Check version before updating
           if (this.settingsVersion.get(ev.action.id) === currentVersion) {
-            await this.updateContainerStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, currentVersion);
+            await this.updateContainerStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, currentVersion);
           }
         }, 600);
       }
@@ -203,15 +207,10 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
     const currentVersion = this.settingsVersion.get(ev.action.id);
 
     try {
-      // Ensure connected
-      if (!dockerService.isConnected()) {
-        const settings = globalSettings.getServerConfig();
-        if (settings) {
-          await dockerService.configure(settings);
-          await dockerService.connect();
-        } else {
-          return;
-        }
+      // Ensure connected to the correct server
+      const connected = await this.ensureConnected(serverId);
+      if (!connected) {
+        return;
       }
 
       const currentState = await dockerService.getContainerState(identifier);
@@ -277,7 +276,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
         // Check version before updating
         if (this.settingsVersion.get(ev.action.id) === currentVersion) {
           this.stopAnimation(ev.action.id);
-          await this.updateContainerStatus(ev.action, identifier, displayName, customIcon, bgColor, showTitle, currentVersion);
+          await this.updateContainerStatus(ev.action, identifier, displayName, serverId, customIcon, bgColor, showTitle, currentVersion);
         }
       }, 2500);
     } catch (error) {
@@ -287,50 +286,69 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
         this.stopAnimation(ev.action.id);
         // Restore previous state icon
         const { customIconBase64, backgroundColor, showTitle = true } = ev.payload.settings;
-        await this.updateContainerStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, currentVersion);
+        await this.updateContainerStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, currentVersion);
       }
     }
   }
 
   private openUrl(url: string): void {
-    // Open URL in default browser
-    const command = process.platform === "win32"
-      ? `start "" "${url}"`
-      : process.platform === "darwin"
-        ? `open "${url}"`
-        : `xdg-open "${url}"`;
+    try {
+      // Validate and escape URL to prevent command injection
+      const safeUrl = escapeURL(url);
 
-    exec(command, (error) => {
-      if (error) {
-        console.error("Failed to open URL:", error);
-      }
-    });
+      // Open URL in default browser with escaped URL
+      const command = process.platform === "win32"
+        ? `start "" ${safeUrl}`
+        : process.platform === "darwin"
+          ? `open ${safeUrl}`
+          : `xdg-open ${safeUrl}`;
+
+      exec(command, (error) => {
+        if (error) {
+          pluginLogger.error(`Failed to open URL: ${error.message}`, "toggle");
+        }
+      });
+    } catch (error) {
+      pluginLogger.error(`Invalid URL: ${error instanceof Error ? error.message : "Unknown error"}`, "toggle");
+    }
   }
 
   private copyToClipboard(text: string): void {
-    // Copy text to clipboard using platform-specific commands
-    let command: string;
+    try {
+      // Sanitize text to prevent command injection
+      const safeText = sanitizeClipboardText(text);
 
-    if (process.platform === "win32") {
-      // Windows: use clip command
-      command = `echo|set /p="${text.replace(/"/g, '\\"')}"| clip`;
-    } else if (process.platform === "darwin") {
-      // macOS: use pbcopy
-      command = `echo -n "${text.replace(/"/g, '\\"')}" | pbcopy`;
-    } else {
-      // Linux: use xclip or xsel
-      command = `echo -n "${text.replace(/"/g, '\\"')}" | xclip -selection clipboard`;
-    }
+      // Use Node.js child_process with stdin to avoid shell escaping issues
+      const { spawn } = require("child_process");
 
-    exec(command, (error) => {
-      if (error) {
-        pluginLogger.error(`Failed to copy to clipboard: ${error.message}`, "toggle");
+      let proc;
+      if (process.platform === "win32") {
+        // Windows: use clip command via stdin
+        proc = spawn("clip", [], { shell: false });
+      } else if (process.platform === "darwin") {
+        // macOS: use pbcopy via stdin
+        proc = spawn("pbcopy", [], { shell: false });
+      } else {
+        // Linux: use xclip via stdin
+        proc = spawn("xclip", ["-selection", "clipboard"], { shell: false });
       }
-    });
+
+      proc.on("error", (error: Error) => {
+        pluginLogger.error(`Failed to copy to clipboard: ${error.message}`, "toggle");
+      });
+
+      // Write text to stdin (safest way - no shell escaping needed)
+      proc.stdin.write(safeText);
+      proc.stdin.end();
+
+      pluginLogger.debug("Text copied to clipboard successfully", "toggle");
+    } catch (error) {
+      pluginLogger.error(`Failed to copy to clipboard: ${error instanceof Error ? error.message : "Unknown error"}`, "toggle");
+    }
   }
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<ToggleSettings>): Promise<void> {
-    const { containerId, containerName, displayName, refreshInterval = 5, customIconBase64, backgroundColor, showTitle = true } = ev.payload.settings;
+    const { containerId, containerName, displayName, serverId, refreshInterval = 5, customIconBase64, backgroundColor, showTitle = true } = ev.payload.settings;
     const identifier = containerId || containerName;
 
     // Increment version to cancel any pending operations from previous settings
@@ -372,10 +390,10 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
     }
 
     // Phase 1: Quick update first
-    await this.quickUpdateStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, currentVersion);
+    await this.quickUpdateStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, currentVersion);
 
     // Phase 2: Full health check in background
-    this.updateContainerStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, currentVersion).then(() => {
+    this.updateContainerStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, currentVersion).then(() => {
       // Only mark as done if version still matches
       if (this.settingsVersion.get(ev.action.id) === currentVersion) {
         this.initialLoadDone.set(ev.action.id, true);
@@ -386,7 +404,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
     const intervalId = setInterval(async () => {
       const checkVersion = this.settingsVersion.get(ev.action.id);
       if (checkVersion === currentVersion) {
-        await this.updateContainerStatus(ev.action, identifier, displayName, customIconBase64, backgroundColor, showTitle, currentVersion);
+        await this.updateContainerStatus(ev.action, identifier, displayName, serverId, customIconBase64, backgroundColor, showTitle, currentVersion);
       }
     }, refreshInterval * 1000);
 
@@ -398,50 +416,57 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
 
     if (actionType === "listContainers") {
       try {
-        pluginLogger.info("listContainers request received from PI", "toggle");
+        const requestedServerId = ev.payload.serverId;
+        pluginLogger.info(`listContainers request received from PI for server: ${requestedServerId || 'default'}`, "toggle");
         await ev.action.sendToPropertyInspector({ log: "Starting listContainers..." });
 
-        // Ensure connected
-        if (!dockerService.isConnected()) {
-          pluginLogger.info("Not connected, getting server config...", "toggle");
-          await ev.action.sendToPropertyInspector({ log: "Not connected, getting config..." });
+        // Get server config - use specific server if provided, otherwise default
+        let config;
+        if (requestedServerId) {
+          config = globalSettings.getServerById(requestedServerId);
+          pluginLogger.info(`Using specific server: ${requestedServerId}`, "toggle");
+        } else {
+          config = globalSettings.getServerConfig();
+        }
 
-          const config = globalSettings.getServerConfig();
-          pluginLogger.debug(`Server config: ${JSON.stringify(config)}`, "toggle");
+        if (!config) {
+          pluginLogger.error("No server config found", "toggle");
+          await ev.action.sendToPropertyInspector({
+            log: "No server config found",
+            logType: "error"
+          });
+          await ev.action.sendToPropertyInspector({
+            error: "No server configured. Click 'Manage Servers' first."
+          });
+          return;
+        }
 
-          if (!config) {
-            pluginLogger.error("No server config found", "toggle");
-            await ev.action.sendToPropertyInspector({
-              log: "No server config found",
-              logType: "error"
-            });
-            await ev.action.sendToPropertyInspector({
-              error: "No server configured. Click 'Configure Server Connection' first."
-            });
-            return;
+        // Check if we need to reconnect (different server or not connected)
+        const targetHost = config.sshHost || config.dockerHost;
+        const currentHost = dockerService.getActiveHost();
+        const needsReconnect = !dockerService.isConnected() || currentHost !== targetHost;
+
+        if (needsReconnect) {
+          pluginLogger.info(`Connecting to server: ${targetHost}`, "toggle");
+          await ev.action.sendToPropertyInspector({ log: `Connecting to ${targetHost}...` });
+
+          // Disconnect first if switching servers
+          if (dockerService.isConnected() && currentHost !== targetHost) {
+            pluginLogger.info(`Switching from ${currentHost} to ${targetHost}`, "toggle");
+            await dockerService.disconnect();
           }
 
-          pluginLogger.info(`Config found: ${config.connectionType} - ${config.sshHost || config.dockerHost}`, "toggle");
-          await ev.action.sendToPropertyInspector({
-            log: `Config found: ${config.connectionType} - ${config.sshHost || config.dockerHost}`
-          });
-
-          pluginLogger.info("Configuring docker service...", "toggle");
-          await ev.action.sendToPropertyInspector({ log: "Configuring docker service..." });
           await dockerService.configure(config);
-
-          pluginLogger.info("Connecting to Docker server...", "toggle");
-          await ev.action.sendToPropertyInspector({ log: "Connecting..." });
           const connected = await dockerService.connect();
 
           if (!connected) {
-            pluginLogger.error(`Connection failed to ${config.sshHost || config.dockerHost}`, "toggle");
+            pluginLogger.error(`Connection failed to ${targetHost}`, "toggle");
             await ev.action.sendToPropertyInspector({
               log: "Connection failed!",
               logType: "error"
             });
             await ev.action.sendToPropertyInspector({
-              error: `SSH connection failed. Check host (${config.sshHost}), credentials, and network.`
+              error: `Connection failed to ${targetHost}. Check settings.`
             });
             return;
           }
@@ -449,8 +474,8 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
           pluginLogger.info("Connected successfully!", "toggle");
           await ev.action.sendToPropertyInspector({ log: "Connected successfully!" });
         } else {
-          pluginLogger.info("Already connected to Docker server", "toggle");
-          await ev.action.sendToPropertyInspector({ log: "Already connected" });
+          pluginLogger.info(`Already connected to ${currentHost}`, "toggle");
+          await ev.action.sendToPropertyInspector({ log: `Already connected to ${currentHost}` });
         }
 
         pluginLogger.info("Fetching containers list...", "toggle");
@@ -528,32 +553,55 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
   }
 
   /**
+   * Ensure connection to the correct server
+   * @param serverId - Optional server ID to connect to (uses default if not provided)
+   * @returns true if connected successfully
+   */
+  private async ensureConnected(serverId?: string): Promise<boolean> {
+    // Get server config - use specific server if provided, otherwise default
+    let config;
+    if (serverId) {
+      config = globalSettings.getServerById(serverId);
+      pluginLogger.debug(`Using specific server: ${serverId}`, "toggle");
+    } else {
+      config = globalSettings.getServerConfig();
+    }
+
+    if (!config) {
+      pluginLogger.error("No server config found", "toggle");
+      return false;
+    }
+
+    // Use the new connection pool method - does NOT disconnect other servers
+    const connected = await dockerService.ensureServerConnection(config);
+    if (!connected) {
+      const targetHost = config.sshHost || config.dockerHost;
+      pluginLogger.error(`Connection failed to ${targetHost}`, "toggle");
+      return false;
+    }
+
+    // Also set as current for backwards compatibility with other methods
+    await dockerService.configure(config);
+    return true;
+  }
+
+  /**
    * Quick status update - just gets basic state, no full health check
    * Used for initial fast loading before detailed health info is available
    */
-  private async quickUpdateStatus(action: Action<ToggleSettings>, identifier: string, displayName?: string, customIconBase64?: string, backgroundColor?: string, showTitle: boolean = true, version?: number): Promise<void> {
+  private async quickUpdateStatus(action: Action<ToggleSettings>, identifier: string, displayName?: string, serverId?: string, customIconBase64?: string, backgroundColor?: string, showTitle: boolean = true, version?: number): Promise<void> {
     try {
       // Check version before doing anything
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
         return; // Settings changed, abort
       }
 
-      // Ensure connected
-      if (!dockerService.isConnected()) {
-        const settings = globalSettings.getServerConfig();
-        if (settings) {
-          await dockerService.configure(settings);
-          await dockerService.connect();
-        } else {
-          await action.setTitle("No\nserver");
-          await action.setState(0);
-          return;
-        }
-      }
-
-      // Check version again after async operation
-      if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
-        return; // Settings changed, abort
+      // Ensure connected to the correct server
+      const connected = await this.ensureConnected(serverId);
+      if (!connected) {
+        await action.setTitle("No\nserver");
+        await action.setState(0);
+        return;
       }
 
       // Quick state check only
@@ -601,29 +649,19 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
     }
   }
 
-  private async updateContainerStatus(action: Action<ToggleSettings>, identifier: string, displayName?: string, customIconBase64?: string, backgroundColor?: string, showTitle: boolean = true, version?: number): Promise<void> {
+  private async updateContainerStatus(action: Action<ToggleSettings>, identifier: string, displayName?: string, serverId?: string, customIconBase64?: string, backgroundColor?: string, showTitle: boolean = true, version?: number): Promise<void> {
     try {
       // Check version before doing anything
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
         return; // Settings changed, abort
       }
 
-      // Ensure connected
-      if (!dockerService.isConnected()) {
-        const settings = globalSettings.getServerConfig();
-        if (settings) {
-          await dockerService.configure(settings);
-          await dockerService.connect();
-        } else {
-          await action.setTitle("No\nserver");
-          await action.setState(0);
-          return;
-        }
-      }
-
-      // Check version again after async operation
-      if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
-        return; // Settings changed, abort
+      // Ensure connected to the correct server
+      const connected = await this.ensureConnected(serverId);
+      if (!connected) {
+        await action.setTitle("No\nserver");
+        await action.setState(0);
+        return;
       }
 
       // Get detailed health information

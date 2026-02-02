@@ -129,13 +129,86 @@
     .action-group {
       margin-top: 12px;
     }
+
+    /* Task Sequence Builder */
+    .task-sequence {
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+    }
+    .task-list {
+      min-height: 40px;
+    }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      cursor: grab;
+    }
+    .task-item:active { cursor: grabbing; }
+    .task-item.dragging { opacity: 0.5; }
+    .task-item:last-child { margin-bottom: 0; }
+    .task-item .task-icon { font-size: 14px; }
+    .task-item .task-name { flex: 1; font-size: 11px; }
+    .task-item .task-remove {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 14px;
+    }
+    .task-item .task-remove:hover { color: #F44336; }
+    .task-add-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .task-add-row select { flex: 1; }
+    .task-add-row .btn-add {
+      padding: 6px 12px;
+      background: #0db7ed;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .task-add-row .btn-add:hover { background: #0a9fd4; }
+    .task-empty {
+      text-align: center;
+      color: #666;
+      font-size: 11px;
+      padding: 12px;
+    }
+    .sequence-arrow {
+      text-align: center;
+      color: #0db7ed;
+      font-size: 10px;
+      margin: 2px 0;
+    }
   </style>
 </head>
 <body>
-  <!-- Server Config Button -->
-  <button class="btn btn-config" id="openConfig">
-    ⚙️ Configure Server Connection
-  </button>
+  <!-- Server Selection -->
+  <div class="section">
+    <div class="section-title">Server</div>
+    <div class="form-group">
+      <select id="serverSelect">
+        <option value="">Default Server</option>
+      </select>
+    </div>
+    <button class="btn btn-config" id="openConfig">
+      Manage Servers
+    </button>
+  </div>
 
   <div class="divider"></div>
 
@@ -233,16 +306,30 @@
     <div class="section-title">Action (Short Press)</div>
 
     <div class="form-group">
-      <label class="form-label">On Button Press</label>
-      <select id="actionType">
-        <option value="toggle">Toggle (Start/Stop)</option>
-        <option value="start">Start Only</option>
-        <option value="stop">Stop Only</option>
-        <option value="restart">Restart</option>
-        <option value="status">Status Only (no action)</option>
-        <option value="openUrl">Open URL</option>
-        <option value="copyToClipboard">Copy to Clipboard</option>
-      </select>
+      <label class="form-label">Task Sequence</label>
+      <div style="font-size: 10px; color: #666; margin-bottom: 8px;">Tasks execute in order. Drag to reorder.</div>
+      <div class="task-sequence">
+        <div class="task-list" id="shortPressTaskList">
+          <div class="task-empty">No tasks configured</div>
+        </div>
+        <div class="task-add-row">
+          <select id="shortPressTaskSelect">
+            <option value="">Add a task...</option>
+            <option value="toggle">Toggle (Start/Stop)</option>
+            <option value="start">Start Only</option>
+            <option value="stop">Stop Only</option>
+            <option value="restart">Restart</option>
+            <option value="status">Status Only</option>
+            <option value="openUrl">Open URL</option>
+            <option value="logs">Open Logs</option>
+            <option value="copyToClipboard">Copy to Clipboard</option>
+            <option value="wait:2">Wait 2s</option>
+            <option value="wait:5">Wait 5s</option>
+            <option value="wait:10">Wait 10s</option>
+          </select>
+          <button class="btn-add" onclick="addTask('short')">+ Add</button>
+        </div>
+      </div>
     </div>
 
     <div class="form-group" id="primaryUrlGroup">
@@ -286,7 +373,7 @@
 
   <!-- Long Press Settings -->
   <div class="section action-group" id="longPressSettings">
-    <div class="section-title">Long Press (Hold Button)</div>
+    <div class="section-title">Action (Long Press)</div>
 
     <div class="form-group">
       <label class="form-label">Long Press Duration (ms)</label>
@@ -295,17 +382,30 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label">On Long Press</label>
-      <select id="longPressAction">
-        <option value="">Same as short press</option>
-        <option value="toggle">Toggle (Start/Stop)</option>
-        <option value="start">Start Only</option>
-        <option value="stop">Stop Only</option>
-        <option value="restart">Restart</option>
-        <option value="status">Status Only</option>
-        <option value="openUrl">Open URL</option>
-        <option value="copyToClipboard">Copy to Clipboard</option>
-      </select>
+      <label class="form-label">Task Sequence</label>
+      <div style="font-size: 10px; color: #666; margin-bottom: 8px;">Optional. Leave empty to use same as short press.</div>
+      <div class="task-sequence">
+        <div class="task-list" id="longPressTaskList">
+          <div class="task-empty">No tasks (uses short press)</div>
+        </div>
+        <div class="task-add-row">
+          <select id="longPressTaskSelect">
+            <option value="">Add a task...</option>
+            <option value="toggle">Toggle (Start/Stop)</option>
+            <option value="start">Start Only</option>
+            <option value="stop">Stop Only</option>
+            <option value="restart">Restart</option>
+            <option value="status">Status Only</option>
+            <option value="openUrl">Open URL</option>
+            <option value="logs">Open Logs</option>
+            <option value="copyToClipboard">Copy to Clipboard</option>
+            <option value="wait:2">Wait 2s</option>
+            <option value="wait:5">Wait 5s</option>
+            <option value="wait:10">Wait 10s</option>
+          </select>
+          <button class="btn-add" onclick="addTask('long')">+ Add</button>
+        </div>
+      </div>
     </div>
 
     <div class="form-group" id="longPressUrlGroup">
@@ -326,6 +426,22 @@
     let settings = {};
     let globalSettings = {};
     let currentAction = '';
+    let shortPressTasks = [];
+    let longPressTasks = [];
+
+    const TASK_INFO = {
+      'toggle': { icon: '🔄', name: 'Toggle (Start/Stop)' },
+      'start': { icon: '▶️', name: 'Start Only' },
+      'stop': { icon: '⏹️', name: 'Stop Only' },
+      'restart': { icon: '🔃', name: 'Restart' },
+      'status': { icon: '📊', name: 'Status Only' },
+      'openUrl': { icon: '🔗', name: 'Open URL' },
+      'logs': { icon: '📋', name: 'Open Logs' },
+      'copyToClipboard': { icon: '📋', name: 'Copy to Clipboard' },
+      'wait:2': { icon: '⏱️', name: 'Wait 2s' },
+      'wait:5': { icon: '⏱️', name: 'Wait 5s' },
+      'wait:10': { icon: '⏱️', name: 'Wait 10s' }
+    };
 
     function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
       uuid = inUUID;
@@ -359,6 +475,7 @@
 
         if (data.event === 'didReceiveGlobalSettings') {
           globalSettings = data.payload.settings || {};
+          populateServerDropdown();
           console.log('Got global settings:', globalSettings);
         }
 
@@ -384,24 +501,74 @@
       }
     }
 
+    function populateServerDropdown() {
+      const select = document.getElementById('serverSelect');
+      // Support both new format (servers at root) and old format (serverConfig.servers)
+      const servers = globalSettings.servers || globalSettings.serverConfig?.servers || [];
+
+      // If there are servers configured, show them directly without "Default Server" option
+      if (servers.length > 0) {
+        select.innerHTML = '';
+        servers.forEach(server => {
+          const option = document.createElement('option');
+          option.value = server.id;
+          option.textContent = server.name + (server.isDefault ? ' (default)' : '');
+          select.appendChild(option);
+        });
+      } else {
+        select.innerHTML = '<option value="">No servers configured</option>';
+      }
+
+      // Restore selection - if no serverId set, use default server
+      if (settings.serverId) {
+        select.value = settings.serverId;
+      } else if (servers.length > 0) {
+        const defaultServer = servers.find(s => s.isDefault) || servers[0];
+        if (defaultServer) {
+          select.value = defaultServer.id;
+        }
+      }
+    }
+
     function loadSettings() {
       document.getElementById('containerName').value = settings.containerName || '';
       document.getElementById('displayName').value = settings.displayName || '';
-      document.getElementById('actionType').value = settings.action || 'toggle';
       document.getElementById('refreshInterval').value = settings.refreshInterval || 5;
       document.getElementById('primaryUrl').value = settings.primaryUrl || '';
       document.getElementById('clipboardText').value = settings.clipboardText || '';
-      document.getElementById('longPressAction').value = settings.longPressAction || '';
       document.getElementById('longPressUrl').value = settings.longPressUrl || '';
       document.getElementById('longPressClipboardText').value = settings.longPressClipboardText || '';
       document.getElementById('longPressDuration').value = settings.longPressDuration || 500;
       document.getElementById('iconSource').value = settings.iconSource || 'default';
-      document.getElementById('showTitle').checked = settings.showTitle !== false; // Default true
+      document.getElementById('showTitle').checked = settings.showTitle !== false;
       document.getElementById('iconUrl').value = settings.iconUrl || '';
+
       // Background color
       const bgColor = settings.backgroundColor || '';
       document.getElementById('backgroundColor').value = bgColor || '#2a2a2a';
       document.getElementById('backgroundColorPreset').value = bgColor || '';
+
+      // Load task sequences (migrate from old format if needed)
+      if (settings.shortPressTasks && settings.shortPressTasks.length) {
+        shortPressTasks = settings.shortPressTasks;
+      } else if (settings.action) {
+        // Migrate from old single action format
+        shortPressTasks = [settings.action];
+      } else {
+        shortPressTasks = ['toggle'];
+      }
+
+      if (settings.longPressTasks && settings.longPressTasks.length) {
+        longPressTasks = settings.longPressTasks;
+      } else if (settings.longPressAction) {
+        // Migrate from old format
+        longPressTasks = [settings.longPressAction];
+      } else {
+        longPressTasks = [];
+      }
+
+      renderTaskList('short');
+      renderTaskList('long');
       updateActionFieldsVisibility();
       updateIconUI();
       updateIconPreview();
@@ -410,18 +577,21 @@
 
     function saveSettings() {
       const bgColorValue = document.getElementById('backgroundColor').value;
-      // Only save backgroundColor if it's not the default or empty
       const backgroundColor = bgColorValue && bgColorValue !== '#2a2a2a' ? bgColorValue : '';
 
       const iconSource = document.getElementById('iconSource').value;
       settings = {
+        serverId: document.getElementById('serverSelect').value,
         containerName: document.getElementById('containerName').value,
         displayName: document.getElementById('displayName').value,
-        action: document.getElementById('actionType').value,
+        shortPressTasks: shortPressTasks,
+        longPressTasks: longPressTasks,
+        // Keep legacy fields for backward compatibility
+        action: shortPressTasks[0] || 'toggle',
+        longPressAction: longPressTasks[0] || '',
         refreshInterval: parseInt(document.getElementById('refreshInterval').value) || 5,
         primaryUrl: document.getElementById('primaryUrl').value,
         clipboardText: document.getElementById('clipboardText').value,
-        longPressAction: document.getElementById('longPressAction').value,
         longPressUrl: document.getElementById('longPressUrl').value,
         longPressClipboardText: document.getElementById('longPressClipboardText').value,
         longPressDuration: parseInt(document.getElementById('longPressDuration').value) || 500,
@@ -448,24 +618,118 @@
     }
 
     function updateActionFieldsVisibility() {
-      const actionType = document.getElementById('actionType').value;
-      const longPressAction = document.getElementById('longPressAction').value;
-
-      // Show primary URL field if action is openUrl
+      // Show primary URL field if any short press task is openUrl
+      const hasOpenUrl = shortPressTasks.includes('openUrl');
       const primaryUrlGroup = document.getElementById('primaryUrlGroup');
-      primaryUrlGroup.style.display = actionType === 'openUrl' ? 'block' : 'none';
+      primaryUrlGroup.style.display = hasOpenUrl ? 'block' : 'none';
 
-      // Show clipboard text field if action is copyToClipboard
+      // Show clipboard text field if any short press task is copyToClipboard
+      const hasCopyClipboard = shortPressTasks.includes('copyToClipboard');
       const clipboardTextGroup = document.getElementById('clipboardTextGroup');
-      clipboardTextGroup.style.display = actionType === 'copyToClipboard' ? 'block' : 'none';
+      clipboardTextGroup.style.display = hasCopyClipboard ? 'block' : 'none';
 
-      // Show long press URL field if long press action is openUrl
+      // Show long press URL field if any long press task is openUrl
+      const hasLongOpenUrl = longPressTasks.includes('openUrl');
       const longPressUrlGroup = document.getElementById('longPressUrlGroup');
-      longPressUrlGroup.style.display = longPressAction === 'openUrl' ? 'block' : 'none';
+      longPressUrlGroup.style.display = hasLongOpenUrl ? 'block' : 'none';
 
-      // Show long press clipboard text field if long press action is copyToClipboard
+      // Show long press clipboard text field if any long press task is copyToClipboard
+      const hasLongCopyClipboard = longPressTasks.includes('copyToClipboard');
       const longPressClipboardTextGroup = document.getElementById('longPressClipboardTextGroup');
-      longPressClipboardTextGroup.style.display = longPressAction === 'copyToClipboard' ? 'block' : 'none';
+      longPressClipboardTextGroup.style.display = hasLongCopyClipboard ? 'block' : 'none';
+    }
+
+    // Task Sequence Management
+    function addTask(type) {
+      const select = document.getElementById(type === 'short' ? 'shortPressTaskSelect' : 'longPressTaskSelect');
+      const taskId = select.value;
+      if (!taskId) return;
+
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+      tasks.push(taskId);
+      select.value = '';
+
+      renderTaskList(type);
+      updateActionFieldsVisibility();
+      saveSettings();
+    }
+
+    function removeTask(type, index) {
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+      tasks.splice(index, 1);
+      renderTaskList(type);
+      updateActionFieldsVisibility();
+      saveSettings();
+    }
+
+    function renderTaskList(type) {
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+      const listEl = document.getElementById(type === 'short' ? 'shortPressTaskList' : 'longPressTaskList');
+
+      if (tasks.length === 0) {
+        listEl.innerHTML = `<div class="task-empty">${type === 'short' ? 'No tasks configured' : 'No tasks (uses short press)'}</div>`;
+        return;
+      }
+
+      let html = '';
+      tasks.forEach((taskId, index) => {
+        const info = TASK_INFO[taskId] || { icon: '❓', name: taskId };
+        html += `
+          <div class="task-item" draggable="true" data-index="${index}" data-type="${type}">
+            <span class="task-icon">${info.icon}</span>
+            <span class="task-name">${info.name}</span>
+            <button class="task-remove" onclick="removeTask('${type}', ${index})">×</button>
+          </div>
+        `;
+        if (index < tasks.length - 1) {
+          html += '<div class="sequence-arrow">↓</div>';
+        }
+      });
+
+      listEl.innerHTML = html;
+
+      // Setup drag and drop
+      listEl.querySelectorAll('.task-item').forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+      });
+    }
+
+    let draggedItem = null;
+
+    function handleDragStart(e) {
+      draggedItem = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      if (draggedItem === this) return;
+
+      const fromIndex = parseInt(draggedItem.dataset.index);
+      const toIndex = parseInt(this.dataset.index);
+      const type = draggedItem.dataset.type;
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+
+      // Reorder
+      const [removed] = tasks.splice(fromIndex, 1);
+      tasks.splice(toIndex, 0, removed);
+
+      renderTaskList(type);
+      saveSettings();
+    }
+
+    function handleDragEnd() {
+      this.classList.remove('dragging');
+      draggedItem = null;
     }
 
     function showStatus(message, type) {
@@ -612,11 +876,12 @@
       addDebugLog('Button clicked: Load Containers');
 
       if (websocket && websocket.readyState === 1) {
-        addDebugLog('Sending listContainers to plugin...');
+        const selectedServerId = document.getElementById('serverSelect').value;
+        addDebugLog('Sending listContainers to plugin for server: ' + (selectedServerId || 'default'));
         websocket.send(JSON.stringify({
           event: 'sendToPlugin',
           context: uuid,
-          payload: { action: 'listContainers' }
+          payload: { action: 'listContainers', serverId: selectedServerId }
         }));
       } else {
         addDebugLog('WebSocket not ready! State: ' + (websocket ? websocket.readyState : 'null'), 'error');
@@ -624,13 +889,9 @@
     });
 
     // Auto-save on change
-    ['containerName', 'displayName', 'actionType', 'refreshInterval', 'primaryUrl', 'clipboardText', 'longPressAction', 'longPressUrl', 'longPressClipboardText', 'longPressDuration', 'showTitle'].forEach(id => {
+    ['serverSelect', 'containerName', 'displayName', 'refreshInterval', 'primaryUrl', 'clipboardText', 'longPressUrl', 'longPressClipboardText', 'longPressDuration', 'showTitle'].forEach(id => {
       document.getElementById(id).addEventListener('change', saveSettings);
     });
-
-    // Update action fields visibility when action type changes
-    document.getElementById('actionType').addEventListener('change', updateActionFieldsVisibility);
-    document.getElementById('longPressAction').addEventListener('change', updateActionFieldsVisibility);
 
     // Search containers
     document.getElementById('containerSearch').addEventListener('input', (e) => {
@@ -765,15 +1026,23 @@
     // Listen for messages from config window
     window.addEventListener('message', (event) => {
       if (event.data.action === 'saveSettings' && event.data.settings) {
-        // Save to global settings
-        globalSettings.serverConfig = event.data.settings;
+        // The config page sends { servers: [...] }
+        // Store locally and send to plugin with correct structure
+        const newSettings = event.data.settings;
+
+        // Update local cache - store servers array at root level (matching plugin format)
+        if (newSettings.servers) {
+          globalSettings.servers = newSettings.servers;
+        }
 
         if (websocket && websocket.readyState === 1) {
+          // Send with 'servers' at root level as plugin expects
           websocket.send(JSON.stringify({
             event: 'setGlobalSettings',
             context: uuid,
-            payload: globalSettings
+            payload: { servers: newSettings.servers || [] }
           }));
+          addDebugLog('Sent ' + (newSettings.servers?.length || 0) + ' servers to plugin');
         }
         showStatus('Server settings saved!', 'success');
         addDebugLog('Server settings saved from config page');
@@ -781,8 +1050,19 @@
 
       // Handle test connection request from config window
       if (event.data.action === 'testConnection') {
+        const testConfig = event.data.config;
         addDebugLog('Test connection request from config page');
+
         if (websocket && websocket.readyState === 1) {
+          // First, temporarily save the test config to global settings so plugin can use it
+          if (testConfig) {
+            websocket.send(JSON.stringify({
+              event: 'setGlobalSettings',
+              context: uuid,
+              payload: { servers: [testConfig] }
+            }));
+          }
+          // Then request test
           websocket.send(JSON.stringify({
             event: 'sendToPlugin',
             context: uuid,
@@ -798,8 +1078,10 @@
 
       // Handle request for current settings from config window
       if (event.data.action === 'requestSettings') {
-        if (event.source && globalSettings.serverConfig) {
-          event.source.postMessage({ type: 'settingsData', settings: globalSettings.serverConfig }, '*');
+        if (event.source) {
+          // Send back the servers array - support both formats
+          const servers = globalSettings.servers || globalSettings.serverConfig?.servers || [];
+          event.source.postMessage({ type: 'settingsData', settings: { servers: servers } }, '*');
         }
       }
     });

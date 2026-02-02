@@ -165,13 +165,86 @@
       font-size: 11px;
       color: #aaa;
     }
+
+    /* Task Sequence Builder */
+    .task-sequence {
+      background: #1E1E1E;
+      border: 1px solid #3C3C3C;
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+    }
+    .task-list {
+      min-height: 40px;
+    }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      cursor: grab;
+    }
+    .task-item:active { cursor: grabbing; }
+    .task-item.dragging { opacity: 0.5; }
+    .task-item:last-child { margin-bottom: 0; }
+    .task-item .task-icon { font-size: 14px; }
+    .task-item .task-name { flex: 1; font-size: 11px; }
+    .task-item .task-remove {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 14px;
+    }
+    .task-item .task-remove:hover { color: #F44336; }
+    .task-add-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .task-add-row select { flex: 1; }
+    .task-add-row .btn-add {
+      padding: 6px 12px;
+      background: #0db7ed;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .task-add-row .btn-add:hover { background: #0a9fd4; }
+    .task-empty {
+      text-align: center;
+      color: #666;
+      font-size: 11px;
+      padding: 12px;
+    }
+    .sequence-arrow {
+      text-align: center;
+      color: #0db7ed;
+      font-size: 10px;
+      margin: 2px 0;
+    }
   </style>
 </head>
 <body>
-  <!-- Server Config Button -->
-  <button class="btn btn-config" id="openConfig">
-    Configure Server Connection
-  </button>
+  <!-- Server Selection -->
+  <div class="section">
+    <div class="section-title">Server</div>
+    <div class="form-group">
+      <select id="serverSelect">
+        <option value="">Default Server</option>
+      </select>
+    </div>
+    <button class="btn btn-config" id="openConfig">
+      Manage Servers
+    </button>
+  </div>
 
   <div class="divider"></div>
 
@@ -181,9 +254,11 @@
 
     <div class="form-group">
       <label class="form-label">Search Paths (one per line)</label>
-      <textarea id="searchPaths" rows="2" placeholder="/mnt/user/appdata&#10;/opt/stacks">/mnt/user/appdata
+      <textarea id="searchPaths" rows="3" placeholder="/mnt/user&#10;/opt&#10;/home">/mnt/user
 /opt
-/home</textarea>
+/home
+/root</textarea>
+      <div style="font-size: 10px; color: #666; margin-top: 4px;">Searches recursively. node_modules and .git are excluded.</div>
     </div>
 
     <button class="btn btn-secondary" id="discoverComposeFiles">
@@ -226,18 +301,32 @@
 
   <!-- Action Settings -->
   <div class="section">
-    <div class="section-title">Action</div>
+    <div class="section-title">Action (Short Press)</div>
 
     <div class="form-group">
-      <label class="form-label">On Button Press</label>
-      <select id="actionType">
-        <option value="toggle">Toggle (Up/Down)</option>
-        <option value="up">Up (Start)</option>
-        <option value="down">Down (Stop)</option>
-        <option value="restart">Restart</option>
-        <option value="build">Build</option>
-        <option value="pull">Pull Images</option>
-      </select>
+      <label class="form-label">Task Sequence</label>
+      <div style="font-size: 10px; color: #666; margin-bottom: 8px;">Tasks execute in order. Drag to reorder.</div>
+      <div class="task-sequence">
+        <div class="task-list" id="shortPressTaskList">
+          <div class="task-empty">No tasks configured</div>
+        </div>
+        <div class="task-add-row">
+          <select id="shortPressTaskSelect">
+            <option value="">Add a task...</option>
+            <option value="toggle">Toggle (Up/Down)</option>
+            <option value="up">Up (Start)</option>
+            <option value="down">Down (Stop)</option>
+            <option value="restart">Restart</option>
+            <option value="build">Build</option>
+            <option value="pull">Pull Images</option>
+            <option value="logs">Open Logs</option>
+            <option value="wait:2">Wait 2s</option>
+            <option value="wait:5">Wait 5s</option>
+            <option value="wait:10">Wait 10s</option>
+          </select>
+          <button class="btn-add" onclick="addTask('short')">+ Add</button>
+        </div>
+      </div>
     </div>
 
     <div class="form-group">
@@ -257,16 +346,38 @@
       <input type="checkbox" id="forceRecreate">
       <label for="forceRecreate">Force recreate containers</label>
     </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Long Press Settings -->
+  <div class="section">
+    <div class="section-title">Action (Long Press)</div>
 
     <div class="form-group">
-      <label class="form-label">Long Press Action</label>
-      <select id="longPressAction">
-        <option value="none">None</option>
-        <option value="down">Down (Stop)</option>
-        <option value="restart">Restart</option>
-        <option value="build">Build</option>
-        <option value="logs">View Logs</option>
-      </select>
+      <label class="form-label">Task Sequence</label>
+      <div style="font-size: 10px; color: #666; margin-bottom: 8px;">Optional. Leave empty to use same as short press.</div>
+      <div class="task-sequence">
+        <div class="task-list" id="longPressTaskList">
+          <div class="task-empty">No tasks (uses short press)</div>
+        </div>
+        <div class="task-add-row">
+          <select id="longPressTaskSelect">
+            <option value="">Add a task...</option>
+            <option value="toggle">Toggle (Up/Down)</option>
+            <option value="up">Up (Start)</option>
+            <option value="down">Down (Stop)</option>
+            <option value="restart">Restart</option>
+            <option value="build">Build</option>
+            <option value="pull">Pull Images</option>
+            <option value="logs">Open Logs</option>
+            <option value="wait:2">Wait 2s</option>
+            <option value="wait:5">Wait 5s</option>
+            <option value="wait:10">Wait 10s</option>
+          </select>
+          <button class="btn-add" onclick="addTask('long')">+ Add</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -325,7 +436,23 @@
     let uuid = null;
     let actionInfo = null;
     let settings = {};
+    let globalSettings = {};
     let composeFiles = [];
+    let shortPressTasks = [];
+    let longPressTasks = [];
+
+    const TASK_INFO = {
+      'toggle': { icon: '🔄', name: 'Toggle (Up/Down)' },
+      'up': { icon: '▶️', name: 'Up (Start)' },
+      'down': { icon: '⏹️', name: 'Down (Stop)' },
+      'restart': { icon: '🔃', name: 'Restart' },
+      'build': { icon: '🔨', name: 'Build' },
+      'pull': { icon: '📥', name: 'Pull Images' },
+      'logs': { icon: '📋', name: 'Open Logs' },
+      'wait:2': { icon: '⏱️', name: 'Wait 2s' },
+      'wait:5': { icon: '⏱️', name: 'Wait 5s' },
+      'wait:10': { icon: '⏱️', name: 'Wait 10s' }
+    };
 
     function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
       uuid = inUUID;
@@ -351,6 +478,11 @@
       websocket.onmessage = function(evt) {
         const data = JSON.parse(evt.data);
 
+        if (data.event === 'didReceiveGlobalSettings') {
+          globalSettings = data.payload.settings || {};
+          populateServerDropdown();
+        }
+
         if (data.event === 'didReceiveSettings') {
           settings = data.payload.settings || {};
           loadSettings();
@@ -362,12 +494,41 @@
       };
     }
 
+    function populateServerDropdown() {
+      const select = document.getElementById('serverSelect');
+      const servers = globalSettings.servers || [];
+
+      // If there are servers configured, show them directly without "Default Server" option
+      // (the default server will be shown with (défaut) suffix)
+      if (servers.length > 0) {
+        select.innerHTML = '';
+        servers.forEach(server => {
+          const option = document.createElement('option');
+          option.value = server.id;
+          option.textContent = server.name + (server.isDefault ? ' (défaut)' : '');
+          select.appendChild(option);
+        });
+      } else {
+        // No servers configured, show placeholder
+        select.innerHTML = '<option value="">Aucun serveur configuré</option>';
+      }
+
+      // Restore selection - if no serverId set, use default server
+      if (settings.serverId) {
+        select.value = settings.serverId;
+      } else if (servers.length > 0) {
+        // Auto-select default server
+        const defaultServer = servers.find(s => s.isDefault) || servers[0];
+        if (defaultServer) {
+          select.value = defaultServer.id;
+        }
+      }
+    }
+
     function loadSettings() {
       document.getElementById('composePath').value = settings.composePath || '';
       document.getElementById('projectName').value = settings.projectName || '';
       document.getElementById('displayName').value = settings.displayName || '';
-      document.getElementById('actionType').value = settings.actionType || 'toggle';
-      document.getElementById('longPressAction').value = settings.longPressAction || 'none';
       document.getElementById('buildOnUp').checked = settings.buildOnUp || false;
       document.getElementById('forceRecreate').checked = settings.forceRecreate || false;
       document.getElementById('openLogsOnBuild').checked = settings.openLogsOnBuild || false;
@@ -380,6 +541,28 @@
       if (settings.searchPaths && settings.searchPaths.length) {
         document.getElementById('searchPaths').value = settings.searchPaths.join('\n');
       }
+
+      // Load task sequences (migrate from old format if needed)
+      if (settings.shortPressTasks && settings.shortPressTasks.length) {
+        shortPressTasks = settings.shortPressTasks;
+      } else if (settings.actionType) {
+        // Migrate from old single action format
+        shortPressTasks = [settings.actionType];
+      } else {
+        shortPressTasks = ['toggle'];
+      }
+
+      if (settings.longPressTasks && settings.longPressTasks.length) {
+        longPressTasks = settings.longPressTasks;
+      } else if (settings.longPressAction && settings.longPressAction !== 'none') {
+        // Migrate from old format
+        longPressTasks = [settings.longPressAction];
+      } else {
+        longPressTasks = [];
+      }
+
+      renderTaskList('short');
+      renderTaskList('long');
 
       // Request stack status if we have a compose path
       if (settings.composePath) {
@@ -394,12 +577,16 @@
       const bgColor = document.getElementById('backgroundColor').value;
 
       settings = {
+        serverId: document.getElementById('serverSelect').value,
         composePath: document.getElementById('composePath').value,
         projectName: document.getElementById('projectName').value,
         displayName: document.getElementById('displayName').value,
-        actionType: document.getElementById('actionType').value,
         targetService: document.getElementById('targetService').value,
-        longPressAction: document.getElementById('longPressAction').value,
+        shortPressTasks: shortPressTasks,
+        longPressTasks: longPressTasks,
+        // Keep legacy fields for backward compatibility
+        actionType: shortPressTasks[0] || 'toggle',
+        longPressAction: longPressTasks[0] || 'none',
         buildOnUp: document.getElementById('buildOnUp').checked,
         forceRecreate: document.getElementById('forceRecreate').checked,
         openLogsOnBuild: document.getElementById('openLogsOnBuild').checked,
@@ -419,6 +606,97 @@
       }
     }
 
+    // Task Sequence Management
+    function addTask(type) {
+      const select = document.getElementById(type === 'short' ? 'shortPressTaskSelect' : 'longPressTaskSelect');
+      const taskId = select.value;
+      if (!taskId) return;
+
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+      tasks.push(taskId);
+      select.value = '';
+
+      renderTaskList(type);
+      saveSettings();
+    }
+
+    function removeTask(type, index) {
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+      tasks.splice(index, 1);
+      renderTaskList(type);
+      saveSettings();
+    }
+
+    function renderTaskList(type) {
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+      const listEl = document.getElementById(type === 'short' ? 'shortPressTaskList' : 'longPressTaskList');
+
+      if (tasks.length === 0) {
+        listEl.innerHTML = `<div class="task-empty">${type === 'short' ? 'No tasks configured' : 'No tasks (uses short press)'}</div>`;
+        return;
+      }
+
+      let html = '';
+      tasks.forEach((taskId, index) => {
+        const info = TASK_INFO[taskId] || { icon: '❓', name: taskId };
+        html += `
+          <div class="task-item" draggable="true" data-index="${index}" data-type="${type}">
+            <span class="task-icon">${info.icon}</span>
+            <span class="task-name">${info.name}</span>
+            <button class="task-remove" onclick="removeTask('${type}', ${index})">×</button>
+          </div>
+        `;
+        if (index < tasks.length - 1) {
+          html += '<div class="sequence-arrow">↓</div>';
+        }
+      });
+
+      listEl.innerHTML = html;
+
+      // Setup drag and drop
+      listEl.querySelectorAll('.task-item').forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+      });
+    }
+
+    let draggedItem = null;
+
+    function handleDragStart(e) {
+      draggedItem = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      if (draggedItem === this) return;
+
+      const fromIndex = parseInt(draggedItem.dataset.index);
+      const toIndex = parseInt(this.dataset.index);
+      const type = draggedItem.dataset.type;
+      const tasks = type === 'short' ? shortPressTasks : longPressTasks;
+
+      // Reorder
+      const [removed] = tasks.splice(fromIndex, 1);
+      tasks.splice(toIndex, 0, removed);
+
+      renderTaskList(type);
+      saveSettings();
+    }
+
+    function handleDragEnd() {
+      this.classList.remove('dragging');
+      draggedItem = null;
+    }
+
     function sendToPlugin(payload) {
       if (websocket && websocket.readyState === 1) {
         websocket.send(JSON.stringify({
@@ -434,8 +712,14 @@
       const searchPathsText = document.getElementById('searchPaths').value;
       const searchPaths = searchPathsText.split('\n').map(p => p.trim()).filter(p => p);
 
-      showStatus('Discovering compose files...', 'info');
-      sendToPlugin({ action: 'discoverComposeFiles', searchPaths: searchPaths });
+      // Clear existing list and show searching status
+      composeFiles = [];
+      const list = document.getElementById('composeList');
+      list.innerHTML = '<div style="padding: 12px; color: #888; text-align: center;">Recherche en cours...</div>';
+      list.classList.remove('hidden');
+
+      showStatus('Recherche des fichiers compose...', 'info');
+      sendToPlugin({ action: 'discoverComposeFiles', searchPaths: searchPaths, serverId: document.getElementById('serverSelect').value });
     }
 
     function requestStackStatus() {
@@ -443,10 +727,44 @@
     }
 
     function handlePluginMessage(payload) {
+      // Handle progressive discovery - single file found
+      if (payload.composeFileFound) {
+        composeFiles.push(payload.composeFileFound);
+
+        // Filtrer immédiatement selon la recherche en cours
+        const query = document.getElementById('composeSearch').value.toLowerCase();
+        if (query) {
+          const filtered = composeFiles.filter(f =>
+            f.projectName.toLowerCase().includes(query) ||
+            f.path.toLowerCase().includes(query)
+          );
+          displayComposeFiles(filtered);
+          showStatus('Trouvé ' + composeFiles.length + ' fichiers (' + filtered.length + ' correspondent)...', 'info');
+        } else {
+          displayComposeFiles(composeFiles);
+          showStatus('Trouvé ' + composeFiles.length + ' fichiers compose...', 'info');
+        }
+      }
+
+      // Handle discovery complete
+      if (payload.discoveryComplete) {
+        const query = document.getElementById('composeSearch').value.toLowerCase();
+        if (query) {
+          const filtered = composeFiles.filter(f =>
+            f.projectName.toLowerCase().includes(query) ||
+            f.path.toLowerCase().includes(query)
+          );
+          showStatus('Terminé: ' + payload.totalFiles + ' fichiers trouvés, ' + filtered.length + ' correspondent', 'success');
+        } else {
+          showStatus('Terminé: ' + payload.totalFiles + ' fichiers compose trouvés', 'success');
+        }
+      }
+
+      // Legacy: handle batch response (for cached results)
       if (payload.composeFiles) {
         composeFiles = payload.composeFiles;
         displayComposeFiles(composeFiles);
-        showStatus('Found ' + composeFiles.length + ' compose files', 'success');
+        showStatus('Trouvé ' + composeFiles.length + ' fichiers compose', 'success');
       }
 
       if (payload.stackStatus) {
@@ -464,7 +782,7 @@
       list.classList.remove('hidden');
 
       if (files.length === 0) {
-        list.innerHTML = '<div style="padding: 12px; color: #666; text-align: center;">No compose files found</div>';
+        list.innerHTML = '<div style="padding: 12px; color: #666; text-align: center;">Aucun fichier compose trouvé</div>';
         return;
       }
 
@@ -560,8 +878,8 @@
     };
 
     // Save on change
-    ['composePath', 'projectName', 'displayName', 'actionType', 'targetService',
-     'longPressAction', 'refreshInterval', 'searchPaths'].forEach(id => {
+    ['serverSelect', 'composePath', 'projectName', 'displayName', 'targetService',
+     'refreshInterval', 'searchPaths'].forEach(id => {
       document.getElementById(id).onchange = saveSettings;
     });
 

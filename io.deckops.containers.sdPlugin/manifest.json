@@ -1,6 +1,6 @@
 {
   "Name": "Docker Manager",
-  "Version": "2.0.0.0",
+  "Version": "2.3.1.0",
   "Author": "DeckOps",
   "Description": "Manage Docker containers on Unraid/Linux servers directly from your Stream Deck",
   "Category": "Docker Manager",
@@ -31,7 +31,7 @@
       "UUID": "io.deckops.containers.toggle",
       "Name": "Container Control",
       "Tooltip": "Control Docker containers - toggle, start, stop, restart, view status, or open URLs",
-      "Icon": "imgs/action-toggle",
+      "Icon": "imgs/action-container",
       "States": [
         {
           "Image": "imgs/state-stopped",
@@ -51,7 +51,7 @@
       "UUID": "io.deckops.containers.logs",
       "Name": "Container Logs",
       "Tooltip": "View logs from a Docker container",
-      "Icon": "imgs/action-status",
+      "Icon": "imgs/action-logs",
       "States": [
         {
           "Image": "imgs/state-stopped",
@@ -71,10 +71,10 @@
       "UUID": "io.deckops.containers.debug",
       "Name": "Debug Logs",
       "Tooltip": "View plugin debug logs - helpful for troubleshooting",
-      "Icon": "imgs/action-status",
+      "Icon": "imgs/action-debug",
       "States": [
         {
-          "Image": "imgs/action-status",
+          "Image": "imgs/action-debug",
           "TitleAlignment": "bottom",
           "FontSize": 10
         }
@@ -86,7 +86,7 @@
       "UUID": "io.deckops.containers.compose",
       "Name": "Compose Stack",
       "Tooltip": "Manage Docker Compose stacks - up, down, restart, build",
-      "Icon": "imgs/action-toggle",
+      "Icon": "imgs/action-compose",
       "States": [
         {
           "Image": "imgs/state-stopped",
@@ -104,18 +104,108 @@
     },
     {
       "UUID": "io.deckops.containers.image",
-      "Name": "Image Manager",
-      "Tooltip": "Search Docker Hub, pull images, manage local images, prune unused",
-      "Icon": "imgs/action-status",
+      "Name": "Télécharger Image",
+      "Tooltip": "Rechercher sur Docker Hub et télécharger des images avec choix de version/tag",
+      "Icon": "imgs/action-download",
       "States": [
         {
-          "Image": "imgs/action-status",
+          "Image": "imgs/action-download",
           "TitleAlignment": "bottom",
           "FontSize": 10
         }
       ],
       "PropertyInspectorPath": "ui/image-pi.html",
       "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "io.deckops.containers.prune",
+      "Name": "Nettoyage Images",
+      "Tooltip": "Nettoyer les images Docker orphelines ou inutilisées",
+      "Icon": "imgs/action-prune",
+      "States": [
+        {
+          "Image": "imgs/action-prune",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/prune-pi.html",
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "io.deckops.containers.systemprune",
+      "Name": "Nettoyage Système",
+      "Tooltip": "Nettoyage complet Docker - containers arrêtés, images, réseaux, cache",
+      "Icon": "imgs/action-system",
+      "States": [
+        {
+          "Image": "imgs/action-system",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/systemprune-pi.html",
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "io.deckops.containers.disk",
+      "Name": "Espace Disque",
+      "Tooltip": "Afficher l'utilisation disque de Docker",
+      "Icon": "imgs/action-disk",
+      "States": [
+        {
+          "Image": "imgs/action-disk",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/disk-pi.html",
+      "SupportedInMultiActions": false
+    },
+    {
+      "UUID": "io.deckops.containers.network",
+      "Name": "Réseaux Docker",
+      "Tooltip": "Voir et gérer les réseaux Docker",
+      "Icon": "imgs/action-network",
+      "States": [
+        {
+          "Image": "imgs/action-network",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/network-pi.html",
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "io.deckops.containers.run",
+      "Name": "Docker Run",
+      "Tooltip": "Exécuter une commande docker run avec configuration personnalisée",
+      "Icon": "imgs/action-run",
+      "States": [
+        {
+          "Image": "imgs/action-run",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/run-pi.html",
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "io.deckops.containers.globalstatus",
+      "Name": "Global Status",
+      "Tooltip": "View all containers from all servers in a dashboard",
+      "Icon": "imgs/action-globalstatus",
+      "States": [
+        {
+          "Image": "imgs/action-globalstatus",
+          "TitleAlignment": "bottom",
+          "FontSize": 10
+        }
+      ],
+      "PropertyInspectorPath": "ui/globalstatus-pi.html",
+      "SupportedInMultiActions": false
     }
   ]
 }
