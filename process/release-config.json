@@ -1,19 +1,15 @@
 {
   "releaseType": "patch",
-  "description": "Fix JavaScript errors and excessive connection logging",
+  "description": "Fix incorrect icon color during container startup",
   "changes": [
-    "Fixed JavaScript syntax error in network-pi.html",
-    "Fixed JavaScript syntax error in prune-pi.html",
-    "Reduced excessive connection logs in docker-logs action",
-    "Fixed connection pooling to reuse existing connections"
+    "Fixed icon showing red during container startup transition",
+    "Icon now correctly shows green when container is starting"
   ],
   "features": [],
   "fixes": [
-    "JavaScript 'Unexpected string' error in network and prune actions",
-    "Excessive 'Connecting to server' logs every few seconds",
-    "Unnecessary reconnections when already connected",
-    "Connection pooling not working properly in logs action"
+    "Red icon displayed during startup instead of green",
+    "Inverted color transition logic in starting animation"
   ],
   "breaking": [],
-  "notes": "Bug fix and performance improvement release"
+  "notes": "Visual fix - startup animation now correctly shows green icon"
 }

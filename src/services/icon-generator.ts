@@ -459,9 +459,11 @@ class IconGenerator {
     const backgroundColor = options.backgroundColor;
 
     // Colors for transition
-    const startColor = direction === "starting" ? "#F44336" : "#4CAF50"; // Red or Green
-    const endColor = direction === "starting" ? "#4CAF50" : "#F44336";   // Green or Red
-    const dimStartColor = direction === "starting" ? "#661111" : "#1a3d1a";
+    // When starting: begin green (starting up) and stay green
+    // When stopping: begin green (was running) and transition to red (stopped)
+    const startColor = direction === "starting" ? "#4CAF50" : "#4CAF50"; // Green for both
+    const endColor = direction === "starting" ? "#4CAF50" : "#F44336";   // Green for starting, Red for stopping
+    const dimStartColor = direction === "starting" ? "#1a3d1a" : "#1a3d1a";
     const dimEndColor = direction === "starting" ? "#1a3d1a" : "#661111";
 
     // Interpolate between colors based on progress
