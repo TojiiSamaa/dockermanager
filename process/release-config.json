@@ -1,21 +1,21 @@
 {
   "releaseType": "patch",
-  "description": "Fix critical multi-server architecture interference",
+  "description": "Fix log-server multi-server support and add detailed logging",
   "changes": [
-    "Refactored getContainerHealth to accept server config parameter",
-    "Added server-specific versions of all container methods",
-    "Removed all dockerService.configure() calls that changed global state",
-    "Updated docker-toggle and docker-logs to use server-specific methods"
+    "Added server-specific getContainerLogsForServer method",
+    "Updated log-server to use serverConfig for fetching logs",
+    "Added detailed logging to trace which server is used for log streaming",
+    "Removed global isConnected() check that broke multi-server"
   ],
   "features": [
-    "Each button now maintains independent server connection",
-    "Multiple buttons can monitor different servers simultaneously without interference"
+    "Log streaming now works correctly with multiple servers",
+    "Enhanced logging shows server info for each log operation"
   ],
   "fixes": [
-    "Container health showing incorrect status when multiple servers configured",
-    "Buttons interfering with each other when monitoring same container on different servers",
-    "Connection state changing unexpectedly when multiple buttons update"
+    "Log server showing 'No such container' error when using multiple servers",
+    "Logs being fetched from wrong server in multi-server setup",
+    "Continuous connection errors in log streaming"
   ],
   "breaking": [],
-  "notes": "Critical fix for multi-server functionality - each button now stays on its configured server independently"
+  "notes": "Critical fix for log-server multi-server functionality - logs now stream from correct server"
 }

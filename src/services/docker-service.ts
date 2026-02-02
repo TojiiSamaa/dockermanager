@@ -1108,6 +1108,55 @@ class DockerService {
     });
   }
 
+  /**
+   * Get container logs for a specific server (multi-server safe)
+   */
+  async getContainerLogsForServer(config: ServerConfig, containerIdOrName: string, lines: number = 100): Promise<string> {
+    const connected = await this.ensureServerConnection(config);
+    if (!connected) {
+      return "Error: Cannot connect to server";
+    }
+
+    const conn = this.getConnection(config);
+
+    if (config.connectionType === "docker-api") {
+      return this.getContainerLogsDockerAPIForServer(conn, containerIdOrName, lines);
+    } else {
+      return this.getContainerLogsSSHForServer(config, containerIdOrName, lines);
+    }
+  }
+
+  private async getContainerLogsDockerAPIForServer(conn: ServerConnection, containerIdOrName: string, lines: number): Promise<string> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    try {
+      const container = conn.dockerClient.getContainer(containerIdOrName);
+      const logs = await container.logs({
+        stdout: true,
+        stderr: true,
+        tail: lines,
+        timestamps: true,
+      });
+      return logs.toString();
+    } catch (error) {
+      pluginLogger.error(`Failed to get container logs: ${error}`, "docker");
+      return "Error getting logs";
+    }
+  }
+
+  private async getContainerLogsSSHForServer(config: ServerConfig, containerIdOrName: string, lines: number): Promise<string> {
+    try {
+      const cmd = buildDockerCommand("logs", containerIdOrName, "--tail", String(lines), "--timestamps");
+      const output = await this.execSSHCommandForServer(config, `${cmd} 2>&1`);
+      return output;
+    } catch (error) {
+      pluginLogger.error(`Failed to get container logs: ${error}`, "docker");
+      return "Error getting logs";
+    }
+  }
+
   async getContainerLogs(containerIdOrName: string, lines: number = 100): Promise<string> {
     if (!this.connected) {
       await this.connect();

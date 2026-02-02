@@ -13,6 +13,7 @@ interface LogServerInstance {
   containerId: string;
   containerName: string;
   serverName?: string;
+  serverConfig: any; // ServerConfig for multi-server support
   clients: Set<WebSocket>;
   refreshInterval: NodeJS.Timeout | null;
   windowFormat: "small" | "full";
@@ -563,7 +564,8 @@ class LogServerManager {
     logLines: number = 200,
     refreshRate: number = 2,
     windowFormat: "small" | "full" = "full",
-    serverName?: string
+    serverName?: string,
+    serverConfig?: any  // ServerConfig for multi-server support
   ): Promise<{ port: number; url: string } | null> {
     // Check if we already have a server for this container
     const existingServer = this.servers.get(containerId);
@@ -599,12 +601,16 @@ class LogServerManager {
       const wsServer = new WebSocketServer({ server: httpServer });
 
       wsServer.on("connection", async (ws: WebSocket) => {
-        pluginLogger.info(`WebSocket client connected to ${containerName} log server`, "log-server");
+        const serverInfo = serverConfig ? `${serverConfig.sshHost || serverConfig.dockerHost}` : "default";
+        pluginLogger.info(`WebSocket client connected to ${containerName} log server [server: ${serverInfo}]`, "log-server");
         clients.add(ws);
 
         // Send initial logs
         try {
-          const logs = await dockerService.getContainerLogs(containerId, logLines);
+          const logs = serverConfig
+            ? await dockerService.getContainerLogsForServer(serverConfig, containerId, logLines)
+            : await dockerService.getContainerLogs(containerId, logLines);
+          pluginLogger.info(`Retrieved ${logs.length} chars of logs for ${containerName} from server ${serverInfo}`, "log-server");
           const message: LogMessage = {
             type: "logs",
             data: logs,
@@ -613,7 +619,7 @@ class LogServerManager {
           ws.send(JSON.stringify(message));
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          pluginLogger.error(`Failed to get initial logs for ${containerName}: ${errorMessage}`, "log-server");
+          pluginLogger.error(`Failed to get initial logs for ${containerName} on server ${serverInfo}: ${errorMessage}`, "log-server");
 
           // Send a more user-friendly error message
           const errorMsg: LogMessage = {
@@ -660,11 +666,9 @@ class LogServerManager {
         }
 
         try {
-          if (!dockerService.isConnected()) {
-            return;
-          }
-
-          const logs = await dockerService.getContainerLogs(containerId, logLines);
+          const logs = serverConfig
+            ? await dockerService.getContainerLogsForServer(serverConfig, containerId, logLines)
+            : await dockerService.getContainerLogs(containerId, logLines);
           const message: LogMessage = {
             type: "logs",
             data: logs,
@@ -679,7 +683,8 @@ class LogServerManager {
           });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          pluginLogger.error(`Failed to refresh logs for ${containerName}: ${errorMessage}`, "log-server");
+          const serverInfo = serverConfig ? `${serverConfig.sshHost || serverConfig.dockerHost}` : "default";
+          pluginLogger.error(`Failed to refresh logs for ${containerName} on server ${serverInfo}: ${errorMessage}`, "log-server");
 
           // Send error to connected clients
           const errorMsg: LogMessage = {
@@ -705,6 +710,7 @@ class LogServerManager {
         containerId,
         containerName,
         serverName,
+        serverConfig: serverConfig || null,
         clients,
         refreshInterval,
         windowFormat

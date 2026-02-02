@@ -147,14 +147,17 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
         return;
       }
 
-      // Get server name for display
+      // Get server name and config for display
       let serverName = "Default Server";
-      if (serverId) {
-        const serverConfig = globalSettings.getServerById(serverId);
-        if (serverConfig) {
-          serverName = serverConfig.name || serverConfig.sshHost || serverConfig.dockerHost || "Unknown Server";
-        }
+      let logServerConfig = config;  // Use the config we already have from ensureConnected
+      if (!logServerConfig && serverId) {
+        logServerConfig = globalSettings.getServerById(serverId);
       }
+      if (logServerConfig) {
+        serverName = (logServerConfig as any).name || logServerConfig.sshHost || logServerConfig.dockerHost || "Unknown Server";
+      }
+
+      pluginLogger.info(`Creating log server for ${identifier} on server ${serverName}`, "logs");
 
       // Create or get log server
       const serverResult = await logServerManager.createServer(
@@ -163,7 +166,8 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
         logLines,
         streamingRefreshRate,
         windowFormat,
-        serverName
+        serverName,
+        logServerConfig  // Pass the server config for multi-server support
       );
 
       if (!serverResult) {
