@@ -76,7 +76,12 @@ streamDeck.settings.onDidReceiveGlobalSettings<GlobalSettingsPayload>(async (ev)
   // Handle new multi-server format
   if (ev.settings?.servers && ev.settings.servers.length > 0) {
     pluginLogger.info(`Received ${ev.settings.servers.length} servers from settings`, "plugin");
+    pluginLogger.info(`Server names: ${ev.settings.servers.map(s => s.name || 'unnamed').join(', ')}`, "plugin");
     globalSettings.updateServersCache(ev.settings.servers);
+
+    // IMPORTANT: Also save to Stream Deck storage to persist
+    await globalSettings.save();
+    pluginLogger.info("Saved servers to Stream Deck storage", "plugin");
   }
 
   // Handle legacy single server format

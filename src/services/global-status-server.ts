@@ -342,28 +342,32 @@ class GlobalStatusServer {
     let serversData = [];
 
     function connect() {
+      console.log('Attempting to connect to WebSocket at ws://localhost:' + ${this.PORT});
       ws = new WebSocket('ws://localhost:' + ${this.PORT});
 
       ws.onopen = function() {
-        console.log('WebSocket connected');
+        console.log('✅ WebSocket connected successfully');
       };
 
       ws.onmessage = function(event) {
+        console.log('📨 Received raw message:', event.data.substring(0, 200) + (event.data.length > 200 ? '...' : ''));
         try {
           const msg = JSON.parse(event.data);
+          console.log('📋 Parsed message type:', msg.type, 'servers:', msg.servers?.length);
           handleMessage(msg);
         } catch (e) {
-          console.error('Failed to parse message:', e);
+          console.error('❌ Failed to parse message:', e);
+          console.error('Raw data:', event.data);
         }
       };
 
-      ws.onclose = function() {
-        console.log('WebSocket disconnected, reconnecting...');
+      ws.onclose = function(event) {
+        console.log('🔌 WebSocket disconnected (code:', event.code, 'reason:', event.reason, '), reconnecting in 2s...');
         setTimeout(connect, 2000);
       };
 
       ws.onerror = function(error) {
-        console.error('WebSocket error:', error);
+        console.error('❌ WebSocket error:', error);
       };
     }
 
@@ -721,9 +725,13 @@ class GlobalStatusServer {
       // Get all configured servers
       const serverConfigs = globalSettings.getServers();
       pluginLogger.info(`Got ${serverConfigs.length} server configs from getServers()`, "global-status");
+      pluginLogger.info(`Server configs: ${JSON.stringify(serverConfigs.map(s => ({ id: (s as any).id, name: (s as any).name, host: s.sshHost || s.dockerHost })))}`, "global-status");
 
       const singleServer = globalSettings.getServerConfig();
       pluginLogger.info(`Got single server config: ${singleServer ? 'yes' : 'no'}`, "global-status");
+      if (singleServer) {
+        pluginLogger.info(`Single server: ${singleServer.sshHost || singleServer.dockerHost}`, "global-status");
+      }
 
       // Use multi-server config if available, otherwise fall back to single server
       const serversToCheck = serverConfigs.length > 0 ? serverConfigs : (singleServer ? [singleServer] : []);
@@ -732,6 +740,20 @@ class GlobalStatusServer {
 
       if (serversToCheck.length === 0) {
         pluginLogger.warn(`No servers configured! Sending empty status.`, "global-status");
+        // Send empty status immediately so the UI can show "No servers configured"
+        const emptyMessage: StatusMessage = {
+          type: "status",
+          servers: [],
+          timestamp: Date.now()
+        };
+        const messageStr = JSON.stringify(emptyMessage);
+        this.clients.forEach((client) => {
+          if (client.readyState === WS_OPEN) {
+            client.send(messageStr);
+          }
+        });
+        pluginLogger.info(`Sent empty server list to clients`, "global-status");
+        return;
       }
 
       // Fetch status from each server
@@ -788,12 +810,22 @@ class GlobalStatusServer {
         timestamp: Date.now()
       };
 
+      pluginLogger.info(`Preparing to send message with ${servers.length} servers`, "global-status");
+
       const messageStr = JSON.stringify(message);
+      pluginLogger.info(`Message serialized successfully, length: ${messageStr.length} chars`, "global-status");
+
       let sentCount = 0;
       this.clients.forEach((client) => {
         if (client.readyState === WS_OPEN) {
-          client.send(messageStr);
-          sentCount++;
+          try {
+            client.send(messageStr);
+            sentCount++;
+          } catch (sendError) {
+            pluginLogger.error(`Failed to send to client: ${sendError instanceof Error ? sendError.message : "Unknown error"}`, "global-status");
+          }
+        } else {
+          pluginLogger.warn(`Client not in OPEN state, readyState: ${client.readyState}`, "global-status");
         }
       });
 

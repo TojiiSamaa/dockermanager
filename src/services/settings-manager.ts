@@ -27,27 +27,41 @@ class SettingsManager {
 
   async load(): Promise<void> {
     try {
+      console.log("[settings] Loading global settings from Stream Deck...");
       const stored = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
       this.settings = stored || {};
+      console.log("[settings] Loaded settings:", {
+        hasServers: !!this.settings.servers,
+        serverCount: this.settings.servers?.length || 0,
+        hasServerConfig: !!this.settings.serverConfig,
+        serverConfigHost: this.settings.serverConfig?.sshHost || this.settings.serverConfig?.dockerHost || 'none'
+      });
 
       // If no settings in Stream Deck, try to restore from backup
       const hasServers = this.settings.servers && this.settings.servers.length > 0;
       const hasServerConfig = this.settings.serverConfig && (this.settings.serverConfig.sshHost || this.settings.serverConfig.dockerHost);
 
       if (!hasServers && !hasServerConfig) {
+        console.log("[settings] No settings found, attempting restore from backup...");
         const restored = await this.restoreFromBackup();
         if (restored) {
           console.log("[settings] Restored settings from backup file");
+          console.log("[settings] Restored server count:", this.settings.servers?.length || 0);
           // Save restored settings back to Stream Deck
           await this.save();
+          console.log("[settings] Saved restored settings back to Stream Deck");
+        } else {
+          console.log("[settings] No backup file found or backup empty");
         }
       } else {
+        console.log("[settings] Settings exist in Stream Deck, updating backup");
         // Settings exist, update the backup
         await this.saveBackup();
       }
 
       // Migrate: if we have servers array but no serverConfig, use default server
       this.syncServerConfig();
+      console.log("[settings] After sync, serverConfig host:", this.settings.serverConfig?.sshHost || this.settings.serverConfig?.dockerHost || 'none');
     } catch (error) {
       console.error("Failed to load global settings:", error);
       this.settings = {};
@@ -212,7 +226,9 @@ class SettingsManager {
 
   // Get all configured servers
   getServers(): MultiServerConfig[] {
-    return this.settings.servers || [];
+    const servers = this.settings.servers || [];
+    console.log(`[settings] getServers() called, returning ${servers.length} servers`);
+    return servers;
   }
 
   // Get server by ID

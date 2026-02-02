@@ -1,21 +1,22 @@
 {
   "releaseType": "patch",
-  "description": "Add enhanced logging for Global Status debugging",
+  "description": "Fix Global Status not loading and improve settings persistence",
   "changes": [
-    "Added detailed logging for server configuration discovery",
-    "Added logging for each server connection attempt",
-    "Added logging for container fetching from each server",
-    "Added error message broadcasting to clients when status fetch fails"
+    "Fixed critical bug where server settings were not persisted to Stream Deck storage",
+    "Added extensive logging to settings manager for debugging",
+    "Added console logging to Global Status page for troubleshooting",
+    "Improved error handling when sending WebSocket messages",
+    "Added immediate empty status message when no servers configured"
   ],
   "features": [
-    "Better error reporting when Global Status fails to load",
-    "More detailed logs for debugging multi-server issues"
+    "Global Status now shows 'No servers configured' message immediately",
+    "Better client-side diagnostics with browser console logging"
   ],
   "fixes": [
-    "Global Status showing 'Loading...' indefinitely without error",
-    "No feedback when server configuration is missing",
-    "Silent failures when server connections fail"
+    "Global Status page stuck on 'Loading servers...' indefinitely",
+    "Server configurations not being saved properly between plugin restarts",
+    "Silent failures in WebSocket message broadcasting"
   ],
   "breaking": [],
-  "notes": "Enhanced logging to diagnose Global Status loading issues"
+  "notes": "This release fixes the core issue where Global Status was not loading. The problem was that server settings were cached in memory but not persisted to Stream Deck's storage, causing them to be unavailable when Global Status tried to fetch them."
 }
