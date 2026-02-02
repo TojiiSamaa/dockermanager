@@ -7,6 +7,9 @@ io.deckops.containers.sdPlugin/bin/
 io.deckops.containers.sdPlugin/logs/
 *.streamDeckPlugin
 
+# Releases (versioned plugin files)
+releases/*.streamDeckPlugin
+
 # Environment and secrets
 .env
 *.pem

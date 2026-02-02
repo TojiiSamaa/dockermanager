@@ -177,6 +177,22 @@ async function main() {
     : 'npm run pack';
   run(packCommand, 'Package plugin');
 
+  // Step 4b: Rename and archive to releases folder
+  log('\n🔄 Archivage de la release...', 'blue');
+  const releasesDir = path.join(__dirname, '..', '..', 'releases');
+  if (!fs.existsSync(releasesDir)) {
+    fs.mkdirSync(releasesDir, { recursive: true });
+  }
+
+  const oldPluginPath = path.join(__dirname, '..', '..', 'io.deckops.containers.streamDeckPlugin');
+  const newPluginName = `docker-manager-v${newVersion}.streamDeckPlugin`;
+  const newPluginPath = path.join(releasesDir, newPluginName);
+
+  if (fs.existsSync(oldPluginPath)) {
+    fs.copyFileSync(oldPluginPath, newPluginPath);
+    log(`✅ Plugin archivé: releases/${newPluginName}`, 'green');
+  }
+
   // Step 5: Git add
   run('git add -A', 'Stage changes');
 
@@ -198,12 +214,14 @@ async function main() {
   run('git push', 'Push to remote');
 
   // Success
+  const finalPluginName = `docker-manager-v${newVersion}.streamDeckPlugin`;
   log('\n✅ Release complete! 🎉', 'green');
   log('═'.repeat(50), 'blue');
   log('\n📌 Prochaines étapes:', 'bright');
   log('   1. Désinstaller l\'ancien plugin du Stream Deck', 'yellow');
-  log('   2. Double-cliquer sur: io.deckops.containers.streamDeckPlugin', 'yellow');
+  log(`   2. Double-cliquer sur: releases/${finalPluginName}`, 'yellow');
   log('   3. Tester les modifications', 'yellow');
+  log(`\n📦 Fichier de release: releases/${finalPluginName}`, 'green');
   log('');
 }
 

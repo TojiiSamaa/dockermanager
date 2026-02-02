@@ -1,19 +1,18 @@
 {
-  "releaseType": "patch",
-  "description": "Reorganize process scripts and documentation structure",
+  "releaseType": "minor",
+  "description": "Add versioned plugin releases with automatic archiving",
   "changes": [
-    "Created organized process/ folder structure",
-    "Separated process scripts from utility scripts",
-    "Added interactive release scripts (accelerated and standard)",
-    "Removed obsolete release.cjs script",
-    "Updated documentation with new structure"
+    "Plugin files now versioned (docker-manager-vX.Y.Z.streamDeckPlugin)",
+    "Automatic archiving to releases/ folder",
+    "Old versions preserved instead of overwritten",
+    "Updated both process scripts with release archiving"
   ],
   "features": [
-    "Interactive process scripts with config file support",
-    "Process folder with scripts, docs, and config",
-    "Backward compatibility for old npm scripts"
+    "Versioned plugin filenames in releases/ folder",
+    "Automatic copy to releases/ after packaging",
+    "Clear version tracking for all releases"
   ],
   "fixes": [],
   "breaking": [],
-  "notes": "Process scripts now in process/scripts/, utility scripts in scripts/"
+  "notes": "Process scripts now automatically copy versioned plugins to releases/"
 }

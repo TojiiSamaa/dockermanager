@@ -201,11 +201,28 @@ async function main() {
     process.exit(1);
   }
 
+  // Step 4b: Rename and archive to releases folder
+  log('\n🔄 Archivage de la release...', 'blue');
+  const releasesDir = path.join(__dirname, '..', '..', 'releases');
+  if (!fs.existsSync(releasesDir)) {
+    fs.mkdirSync(releasesDir, { recursive: true });
+  }
+
+  const oldPluginPath = path.join(__dirname, '..', '..', 'io.deckops.containers.streamDeckPlugin');
+  const newPluginName = `docker-manager-v${newVersion}.streamDeckPlugin`;
+  const newPluginPath = path.join(releasesDir, newPluginName);
+
+  if (fs.existsSync(oldPluginPath)) {
+    fs.copyFileSync(oldPluginPath, newPluginPath);
+    log(`✅ Plugin archivé: releases/${newPluginName}`, 'green');
+  }
+
   // Step 5: Tests reminder
+  const testPluginName = `docker-manager-v${newVersion}.streamDeckPlugin`;
   log('\n🧪 Phase 3: Tests', 'magenta');
   log('─'.repeat(50), 'blue');
   log('\n⚠️  Process Standard: Tests manuels requis', 'yellow');
-  log('   1. Installer le plugin: io.deckops.containers.streamDeckPlugin', 'yellow');
+  log(`   1. Installer le plugin: releases/${testPluginName}`, 'yellow');
   log('   2. Tester toutes les actions', 'yellow');
   log('   3. Vérifier les logs (pas d\'erreurs)', 'yellow');
 
@@ -246,6 +263,7 @@ async function main() {
   run(`git push origin v${newVersion}`, 'Push tag');
 
   // Success
+  const finalPluginName = `docker-manager-v${newVersion}.streamDeckPlugin`;
   log('\n✅ Release Standard Complete! 🎉', 'green');
   log('═'.repeat(50), 'magenta');
   log('\n📌 Prochaines étapes:', 'bright');
@@ -253,6 +271,7 @@ async function main() {
   log('   2. GitHub Actions va créer la release automatiquement', 'blue');
   log('   3. Vérifier: https://github.com/YOUR_REPO/releases', 'blue');
   log('   4. (Optionnel) Upload vers Elgato Marketplace', 'yellow');
+  log(`\n📦 Fichier de release: releases/${finalPluginName}`, 'green');
   log('');
 }
 
