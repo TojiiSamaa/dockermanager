@@ -65,10 +65,9 @@ export async function testGetContainerState(config: ServerConfig, containerName:
  */
 export async function testGetContainerHealth(config: ServerConfig, containerName: string): Promise<{ success: boolean; message: string; details?: any }> {
   try {
-    await dockerService.configure(config);
-    await dockerService.connect();
+    await dockerService.ensureServerConnection(config);
 
-    const health = await dockerService.getContainerHealth(containerName);
+    const health = await dockerService.getContainerHealth(config, containerName);
 
     await dockerService.disconnect();
 

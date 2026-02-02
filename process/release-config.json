@@ -1,20 +1,21 @@
 {
   "releaseType": "patch",
-  "description": "Add automatic version synchronization system",
+  "description": "Fix critical multi-server architecture interference",
   "changes": [
-    "Created sync-version.cjs script for automatic version synchronization",
-    "Version now automatically synced to all HTML files before build",
-    "Integrated version sync into both accelerated and standard processes",
-    "Fixed version display in plugin-config.html"
+    "Refactored getContainerHealth to accept server config parameter",
+    "Added server-specific versions of all container methods",
+    "Removed all dockerService.configure() calls that changed global state",
+    "Updated docker-toggle and docker-logs to use server-specific methods"
   ],
   "features": [
-    "Single source of truth for version (package.json)",
-    "Automatic version synchronization across all files"
+    "Each button now maintains independent server connection",
+    "Multiple buttons can monitor different servers simultaneously without interference"
   ],
   "fixes": [
-    "Version number not updated in configuration page",
-    "Manual version updates no longer needed"
+    "Container health showing incorrect status when multiple servers configured",
+    "Buttons interfering with each other when monitoring same container on different servers",
+    "Connection state changing unexpectedly when multiple buttons update"
   ],
   "breaking": [],
-  "notes": "Infrastructure improvement - version management is now fully automated"
+  "notes": "Critical fix for multi-server functionality - each button now stays on its configured server independently"
 }

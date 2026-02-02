@@ -39,7 +39,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
   /**
    * Ensure connection to the correct server
    */
-  private async ensureConnected(serverId?: string): Promise<boolean> {
+  private async ensureConnected(serverId?: string): Promise<{ connected: boolean; config: any }> {
     try {
       let config;
       if (serverId) {
@@ -50,23 +50,21 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
 
       if (!config) {
         pluginLogger.error(`No server config found for serverId: ${serverId}`, "logs");
-        return false;
+        return { connected: false, config: null };
       }
 
       // Use the connection pool method - automatically checks if already connected
       const connected = await dockerService.ensureServerConnection(config);
-      if (connected) {
-        // Also set as current for backwards compatibility
-        await dockerService.configure(config);
-      } else {
+      if (!connected) {
         const targetHost = config.sshHost || config.dockerHost;
         pluginLogger.error(`Failed to connect to server: ${targetHost}`, "logs");
+        return { connected: false, config };
       }
 
-      return connected;
+      return { connected: true, config };
     } catch (error) {
       pluginLogger.error(`Error in ensureConnected: ${error instanceof Error ? error.message : String(error)}`, "logs");
-      return false;
+      return { connected: false, config: null };
     }
   }
 
@@ -130,8 +128,8 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
 
     try {
       // Ensure connected to the correct server
-      const connected = await this.ensureConnected(serverId);
-      if (!connected) {
+      const { connected, config } = await this.ensureConnected(serverId);
+      if (!connected || !config) {
         pluginLogger.error("Failed to connect to server", "logs");
         await ev.action.showAlert();
         return;
@@ -139,7 +137,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
 
       // Verify container exists before opening logs
       try {
-        const state = await dockerService.getContainerState(identifier);
+        const state = await dockerService.getContainerStateForServer(config, identifier);
         pluginLogger.info(`Container ${identifier} exists, state: ${state}`, "logs");
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Unknown error";
@@ -255,24 +253,15 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
           return;
         }
 
-        // Check if we need to reconnect
+        // Use connection pool method - does NOT change global state
         const targetHost = config.sshHost || config.dockerHost;
-        const currentHost = dockerService.getActiveHost();
-        const needsReconnect = !dockerService.isConnected() || currentHost !== targetHost;
+        const connected = await dockerService.ensureServerConnection(config);
 
-        if (needsReconnect) {
-          if (dockerService.isConnected() && currentHost !== targetHost) {
-            await dockerService.disconnect();
-          }
-          await dockerService.configure(config);
-          const connected = await dockerService.connect();
-
-          if (!connected) {
-            await ev.action.sendToPropertyInspector({
-              error: `Connection failed to ${targetHost}. Check settings.`
-            });
-            return;
-          }
+        if (!connected) {
+          await ev.action.sendToPropertyInspector({
+            error: `Connection failed to ${targetHost}. Check settings.`
+          });
+          return;
         }
 
         const containers = await dockerService.listContainers();
@@ -294,8 +283,8 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
       }
 
       // Ensure connected to the correct server
-      const connected = await this.ensureConnected(serverId);
-      if (!connected) {
+      const { connected, config } = await this.ensureConnected(serverId);
+      if (!connected || !config) {
         await action.setTitle("Pas de\nserveur");
         return;
       }
@@ -303,7 +292,7 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
       const containerName = displayName || identifier;
 
       // Get container health for status
-      const health = await dockerService.getContainerHealth(identifier);
+      const health = await dockerService.getContainerHealth(config, identifier);
 
       // Check version again after async operation
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {

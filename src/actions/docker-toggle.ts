@@ -208,12 +208,12 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
 
     try {
       // Ensure connected to the correct server
-      const connected = await this.ensureConnected(serverId);
-      if (!connected) {
+      const { connected, config } = await this.ensureConnected(serverId);
+      if (!connected || !config) {
         return;
       }
 
-      const currentState = await dockerService.getContainerState(identifier);
+      const currentState = await dockerService.getContainerStateForServer(config, identifier);
       const isRunning = currentState === "running";
 
       const containerName = displayName || identifier;
@@ -226,7 +226,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
         case "start":
           if (!isRunning) {
             transitionDirection = "starting";
-            await dockerService.startContainer(identifier);
+            await dockerService.startContainerForServer(config, identifier);
           } else {
             // Already running - show validation feedback
             await this.showValidationFeedback(ev.action, containerName, customIconBase64);
@@ -236,7 +236,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
         case "stop":
           if (isRunning) {
             transitionDirection = "stopping";
-            await dockerService.stopContainer(identifier);
+            await dockerService.stopContainerForServer(config, identifier);
           } else {
             // Already stopped - show validation feedback
             await this.showValidationFeedback(ev.action, containerName, customIconBase64);
@@ -246,17 +246,17 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
         case "restart":
           // For restart: stop then start
           transitionDirection = isRunning ? "stopping" : "starting";
-          await dockerService.restartContainer(identifier);
+          await dockerService.restartContainerForServer(config, identifier);
           break;
 
         case "toggle":
         default:
           if (isRunning) {
             transitionDirection = "stopping";
-            await dockerService.stopContainer(identifier);
+            await dockerService.stopContainerForServer(config, identifier);
           } else {
             transitionDirection = "starting";
-            await dockerService.startContainer(identifier);
+            await dockerService.startContainerForServer(config, identifier);
           }
           break;
       }
@@ -441,42 +441,27 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
           return;
         }
 
-        // Check if we need to reconnect (different server or not connected)
+        // Use connection pool method - does NOT change global state
         const targetHost = config.sshHost || config.dockerHost;
-        const currentHost = dockerService.getActiveHost();
-        const needsReconnect = !dockerService.isConnected() || currentHost !== targetHost;
+        pluginLogger.info(`Connecting to server: ${targetHost}`, "toggle");
+        await ev.action.sendToPropertyInspector({ log: `Connecting to ${targetHost}...` });
 
-        if (needsReconnect) {
-          pluginLogger.info(`Connecting to server: ${targetHost}`, "toggle");
-          await ev.action.sendToPropertyInspector({ log: `Connecting to ${targetHost}...` });
+        const connected = await dockerService.ensureServerConnection(config);
 
-          // Disconnect first if switching servers
-          if (dockerService.isConnected() && currentHost !== targetHost) {
-            pluginLogger.info(`Switching from ${currentHost} to ${targetHost}`, "toggle");
-            await dockerService.disconnect();
-          }
-
-          await dockerService.configure(config);
-          const connected = await dockerService.connect();
-
-          if (!connected) {
-            pluginLogger.error(`Connection failed to ${targetHost}`, "toggle");
-            await ev.action.sendToPropertyInspector({
-              log: "Connection failed!",
-              logType: "error"
-            });
-            await ev.action.sendToPropertyInspector({
-              error: `Connection failed to ${targetHost}. Check settings.`
-            });
-            return;
-          }
-
-          pluginLogger.info("Connected successfully!", "toggle");
-          await ev.action.sendToPropertyInspector({ log: "Connected successfully!" });
-        } else {
-          pluginLogger.info(`Already connected to ${currentHost}`, "toggle");
-          await ev.action.sendToPropertyInspector({ log: `Already connected to ${currentHost}` });
+        if (!connected) {
+          pluginLogger.error(`Connection failed to ${targetHost}`, "toggle");
+          await ev.action.sendToPropertyInspector({
+            log: "Connection failed!",
+            logType: "error"
+          });
+          await ev.action.sendToPropertyInspector({
+            error: `Connection failed to ${targetHost}. Check settings.`
+          });
+          return;
         }
+
+        pluginLogger.info("Connected successfully!", "toggle");
+        await ev.action.sendToPropertyInspector({ log: "Connected successfully!" });
 
         pluginLogger.info("Fetching containers list...", "toggle");
         await ev.action.sendToPropertyInspector({ log: "Fetching containers..." });
@@ -516,15 +501,8 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
 
         pluginLogger.info(`Testing connection to: ${config.connectionType} - ${config.sshHost || config.dockerHost}`, "toggle");
 
-        // Disconnect if already connected to force a fresh test
-        if (dockerService.isConnected()) {
-          pluginLogger.info("Disconnecting for fresh test...", "toggle");
-          await dockerService.disconnect();
-        }
-
-        // Configure and try to connect
-        await dockerService.configure(config);
-        const connected = await dockerService.connect();
+        // Use connection pool method - does NOT change global state
+        const connected = await dockerService.ensureServerConnection(config);
 
         if (connected) {
           // Try to list containers as an additional test
@@ -557,7 +535,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
    * @param serverId - Optional server ID to connect to (uses default if not provided)
    * @returns true if connected successfully
    */
-  private async ensureConnected(serverId?: string): Promise<boolean> {
+  private async ensureConnected(serverId?: string): Promise<{ connected: boolean; config: any }> {
     // Get server config - use specific server if provided, otherwise default
     let config;
     if (serverId) {
@@ -569,7 +547,7 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
 
     if (!config) {
       pluginLogger.error("No server config found", "toggle");
-      return false;
+      return { connected: false, config: null };
     }
 
     // Use the new connection pool method - does NOT disconnect other servers
@@ -577,12 +555,10 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
     if (!connected) {
       const targetHost = config.sshHost || config.dockerHost;
       pluginLogger.error(`Connection failed to ${targetHost}`, "toggle");
-      return false;
+      return { connected: false, config };
     }
 
-    // Also set as current for backwards compatibility with other methods
-    await dockerService.configure(config);
-    return true;
+    return { connected: true, config };
   }
 
   /**
@@ -597,15 +573,15 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
       }
 
       // Ensure connected to the correct server
-      const connected = await this.ensureConnected(serverId);
-      if (!connected) {
+      const { connected, config } = await this.ensureConnected(serverId);
+      if (!connected || !config) {
         await action.setTitle("No\nserver");
         await action.setState(0);
         return;
       }
 
       // Quick state check only
-      const state = await dockerService.getContainerState(identifier);
+      const state = await dockerService.getContainerStateForServer(config, identifier);
 
       // Check version again after async operation
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {
@@ -657,15 +633,15 @@ export class DockerToggleAction extends SingletonAction<ToggleSettings> {
       }
 
       // Ensure connected to the correct server
-      const connected = await this.ensureConnected(serverId);
-      if (!connected) {
+      const { connected, config } = await this.ensureConnected(serverId);
+      if (!connected || !config) {
         await action.setTitle("No\nserver");
         await action.setState(0);
         return;
       }
 
       // Get detailed health information
-      const health = await dockerService.getContainerHealth(identifier);
+      const health = await dockerService.getContainerHealth(config, identifier);
 
       // Check version again after async operation
       if (version !== undefined && this.settingsVersion.get(action.id) !== version) {

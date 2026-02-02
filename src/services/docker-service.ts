@@ -731,6 +731,47 @@ class DockerService {
     });
   }
 
+  /**
+   * Get container state for a specific server (multi-server safe)
+   */
+  async getContainerStateForServer(config: ServerConfig, containerIdOrName: string): Promise<ContainerInfo["state"]> {
+    const connected = await this.ensureServerConnection(config);
+    if (!connected) {
+      return "stopped";
+    }
+
+    const conn = this.getConnection(config);
+
+    if (config.connectionType === "docker-api") {
+      return this.getContainerStateDockerAPIForServer(conn, containerIdOrName);
+    } else {
+      return this.getContainerStateSSHForServer(config, containerIdOrName);
+    }
+  }
+
+  private async getContainerStateDockerAPIForServer(conn: ServerConnection, containerIdOrName: string): Promise<ContainerInfo["state"]> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    try {
+      const container = conn.dockerClient.getContainer(containerIdOrName);
+      const info = await container.inspect();
+      return this.mapDockerState(info.State.Status);
+    } catch {
+      return "stopped";
+    }
+  }
+
+  private async getContainerStateSSHForServer(config: ServerConfig, containerIdOrName: string): Promise<ContainerInfo["state"]> {
+    const cmd = buildDockerCommand("inspect", containerIdOrName, "--format", "{{.State.Status}}");
+    const output = await this.execSSHCommandForServer(
+      config,
+      `${cmd} 2>/dev/null || echo "stopped"`
+    );
+    return this.mapDockerState(output.trim());
+  }
+
   async getContainerState(containerIdOrName: string): Promise<ContainerInfo["state"]> {
     if (!this.connected) {
       await this.connect();
@@ -763,6 +804,49 @@ class DockerService {
       `${cmd} 2>/dev/null || echo "stopped"`
     );
     return this.mapDockerState(output.trim());
+  }
+
+  /**
+   * Start container on a specific server (multi-server safe)
+   */
+  async startContainerForServer(config: ServerConfig, containerIdOrName: string): Promise<boolean> {
+    const connected = await this.ensureServerConnection(config);
+    if (!connected) {
+      return false;
+    }
+
+    const conn = this.getConnection(config);
+
+    if (config.connectionType === "docker-api") {
+      return this.startContainerDockerAPIForServer(conn, containerIdOrName);
+    } else {
+      return this.startContainerSSHForServer(config, containerIdOrName);
+    }
+  }
+
+  private async startContainerDockerAPIForServer(conn: ServerConnection, containerIdOrName: string): Promise<boolean> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    try {
+      const container = conn.dockerClient.getContainer(containerIdOrName);
+      await container.start();
+      return true;
+    } catch (error) {
+      pluginLogger.error(`Failed to start container: ${error}`, "docker");
+      return false;
+    }
+  }
+
+  private async startContainerSSHForServer(config: ServerConfig, containerIdOrName: string): Promise<boolean> {
+    try {
+      const cmd = buildDockerCommand("start", containerIdOrName);
+      await this.execSSHCommandForServer(config, cmd);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async startContainer(containerIdOrName: string): Promise<boolean> {
@@ -802,6 +886,49 @@ class DockerService {
     }
   }
 
+  /**
+   * Stop container on a specific server (multi-server safe)
+   */
+  async stopContainerForServer(config: ServerConfig, containerIdOrName: string): Promise<boolean> {
+    const connected = await this.ensureServerConnection(config);
+    if (!connected) {
+      return false;
+    }
+
+    const conn = this.getConnection(config);
+
+    if (config.connectionType === "docker-api") {
+      return this.stopContainerDockerAPIForServer(conn, containerIdOrName);
+    } else {
+      return this.stopContainerSSHForServer(config, containerIdOrName);
+    }
+  }
+
+  private async stopContainerDockerAPIForServer(conn: ServerConnection, containerIdOrName: string): Promise<boolean> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    try {
+      const container = conn.dockerClient.getContainer(containerIdOrName);
+      await container.stop();
+      return true;
+    } catch (error) {
+      pluginLogger.error(`Failed to stop container: ${error}`, "docker");
+      return false;
+    }
+  }
+
+  private async stopContainerSSHForServer(config: ServerConfig, containerIdOrName: string): Promise<boolean> {
+    try {
+      const cmd = buildDockerCommand("stop", containerIdOrName);
+      await this.execSSHCommandForServer(config, cmd);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async stopContainer(containerIdOrName: string): Promise<boolean> {
     if (!this.connected) {
       await this.connect();
@@ -833,6 +960,49 @@ class DockerService {
     try {
       const cmd = buildDockerCommand("stop", containerIdOrName);
       await this.execSSHCommand(cmd);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Restart container on a specific server (multi-server safe)
+   */
+  async restartContainerForServer(config: ServerConfig, containerIdOrName: string): Promise<boolean> {
+    const connected = await this.ensureServerConnection(config);
+    if (!connected) {
+      return false;
+    }
+
+    const conn = this.getConnection(config);
+
+    if (config.connectionType === "docker-api") {
+      return this.restartContainerDockerAPIForServer(conn, containerIdOrName);
+    } else {
+      return this.restartContainerSSHForServer(config, containerIdOrName);
+    }
+  }
+
+  private async restartContainerDockerAPIForServer(conn: ServerConnection, containerIdOrName: string): Promise<boolean> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    try {
+      const container = conn.dockerClient.getContainer(containerIdOrName);
+      await container.restart();
+      return true;
+    } catch (error) {
+      pluginLogger.error(`Failed to restart container: ${error}`, "docker");
+      return false;
+    }
+  }
+
+  private async restartContainerSSHForServer(config: ServerConfig, containerIdOrName: string): Promise<boolean> {
+    try {
+      const cmd = buildDockerCommand("restart", containerIdOrName);
+      await this.execSSHCommandForServer(config, cmd);
       return true;
     } catch {
       return false;
@@ -986,14 +1156,33 @@ class DockerService {
   // Crash loop detection: if restarted more than this many times, consider it crashing
   private readonly CRASH_LOOP_THRESHOLD = 3;
 
-  async getContainerHealth(containerIdOrName: string): Promise<ContainerHealth> {
-    if (!this.connected) {
-      await this.connect();
+  /**
+   * Get container health for a specific server (multi-server safe)
+   * @param config Server configuration
+   * @param containerIdOrName Container ID or name
+   * @returns Container health information
+   */
+  async getContainerHealth(config: ServerConfig, containerIdOrName: string): Promise<ContainerHealth> {
+    // Ensure connection to this specific server
+    const connected = await this.ensureServerConnection(config);
+    if (!connected) {
+      pluginLogger.error(`Cannot connect to server for container ${containerIdOrName}`, "docker");
+      return {
+        state: "stopped",
+        startedAt: null,
+        restartCount: 0,
+        exitCode: null,
+        uptime: 0,
+        isStable: false,
+        isCrashLooping: false,
+      };
     }
 
-    // Check if we have a recent cached value
-    const cached = this.healthCache.get(containerIdOrName);
+    const conn = this.getConnection(config);
     const now = Date.now();
+
+    // Check if we have a recent cached value
+    const cached = conn.healthCache.get(containerIdOrName);
 
     // If cache is fresh (less than 3 seconds old), return it immediately
     if (cached && (now - cached.timestamp) < this.BULK_REFRESH_INTERVAL) {
@@ -1001,10 +1190,10 @@ class DockerService {
     }
 
     // Trigger bulk refresh if not already in progress and enough time has passed
-    if (!this.bulkRefreshInProgress && (now - this.lastBulkRefresh) >= this.BULK_REFRESH_INTERVAL) {
+    if (!conn.bulkRefreshInProgress && (now - conn.lastBulkRefresh) >= this.BULK_REFRESH_INTERVAL) {
       // Don't await - let it run in background
-      this.refreshAllContainerHealth().catch(err => {
-        pluginLogger.error(`Bulk refresh failed: ${err}`, "docker");
+      this.refreshAllContainerHealthForServer(config).catch(err => {
+        pluginLogger.error(`Bulk refresh failed for server: ${err}`, "docker");
       });
     }
 
@@ -1016,14 +1205,14 @@ class DockerService {
     // No cache available, try individual fetch as fallback
     try {
       let health: ContainerHealth;
-      if (this.config?.connectionType === "docker-api") {
-        health = await this.getContainerHealthDockerAPI(containerIdOrName);
+      if (config.connectionType === "docker-api") {
+        health = await this.getContainerHealthDockerAPIForServer(conn, containerIdOrName);
       } else {
-        health = await this.getContainerHealthSSH(containerIdOrName);
+        health = await this.getContainerHealthSSHForServer(config, containerIdOrName);
       }
 
       // Cache the successful result
-      this.healthCache.set(containerIdOrName, { health, timestamp: now });
+      conn.healthCache.set(containerIdOrName, { health, timestamp: now });
       return health;
     } catch (error) {
       pluginLogger.error(`Failed to get health for ${containerIdOrName}: ${error}`, "docker");
@@ -1042,7 +1231,42 @@ class DockerService {
   }
 
   /**
-   * Refresh health status for ALL containers in a single SSH call
+   * Refresh health status for ALL containers on a specific server
+   * Much more efficient than individual calls
+   */
+  async refreshAllContainerHealthForServer(config: ServerConfig): Promise<void> {
+    const conn = this.getConnection(config);
+
+    if (conn.bulkRefreshInProgress) {
+      return; // Already refreshing
+    }
+
+    conn.bulkRefreshInProgress = true;
+
+    try {
+      const connected = await this.ensureServerConnection(config);
+      if (!connected) {
+        return;
+      }
+
+      const now = Date.now();
+
+      if (config.connectionType === "docker-api") {
+        await this.refreshAllContainerHealthDockerAPIForServer(conn, now);
+      } else {
+        await this.refreshAllContainerHealthSSHForServer(config, conn, now);
+      }
+
+      conn.lastBulkRefresh = now;
+    } catch (error) {
+      pluginLogger.error(`Failed to refresh all container health: ${error}`, "docker");
+    } finally {
+      conn.bulkRefreshInProgress = false;
+    }
+  }
+
+  /**
+   * Refresh health status for ALL containers in a single SSH call (DEPRECATED - use refreshAllContainerHealthForServer)
    * Much more efficient than individual calls
    */
   async refreshAllContainerHealth(): Promise<void> {
@@ -1070,6 +1294,52 @@ class DockerService {
       pluginLogger.error(`Failed to refresh all container health: ${error}`, "docker");
     } finally {
       this.bulkRefreshInProgress = false;
+    }
+  }
+
+  /**
+   * Refresh all container health via Docker API for a specific server
+   */
+  private async refreshAllContainerHealthDockerAPIForServer(conn: ServerConnection, timestamp: number): Promise<void> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    const containers = await conn.dockerClient.listContainers({ all: true });
+
+    for (const container of containers) {
+      try {
+        const info = await conn.dockerClient.getContainer(container.Id).inspect();
+        const name = container.Names[0]?.replace(/^\//, "") || container.Id.substring(0, 12);
+
+        const state = this.mapDockerState(info.State.Status);
+        const startedAt = info.State.StartedAt ? new Date(info.State.StartedAt) : null;
+        const restartCount = info.RestartCount || 0;
+        const exitCode = info.State.ExitCode;
+
+        let uptime = 0;
+        if (startedAt && state === "running") {
+          uptime = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+        }
+
+        const isStable = state === "running" && uptime >= this.STABILITY_THRESHOLD;
+        const isCrashLooping = restartCount >= this.CRASH_LOOP_THRESHOLD && uptime < this.STABILITY_THRESHOLD;
+
+        const health: ContainerHealth = {
+          state,
+          startedAt,
+          restartCount,
+          exitCode,
+          uptime,
+          isStable,
+          isCrashLooping,
+        };
+
+        conn.healthCache.set(name, { health, timestamp });
+        conn.healthCache.set(container.Id, { health, timestamp });
+      } catch (error) {
+        pluginLogger.error(`Failed to refresh health for container: ${error}`, "docker");
+      }
     }
   }
 
@@ -1114,6 +1384,89 @@ class DockerService {
       } catch (err) {
         pluginLogger.error(`Failed to get health for container ${container.Id}: ${err}`, "docker");
       }
+    }
+  }
+
+  /**
+   * Refresh all container health via SSH for a specific server
+   */
+  private async refreshAllContainerHealthSSHForServer(config: ServerConfig, conn: ServerConnection, timestamp: number): Promise<void> {
+    // Get all containers with their health info in ONE command
+    const output = await this.execSSHCommandForServer(
+      config,
+      `docker ps -a --format '{{.Names}}|{{.ID}}|{{.State}}' && echo "---INSPECT---" && docker inspect --format '{{.Name}}|{{.State.Status}}|{{.State.StartedAt}}|{{.RestartCount}}|{{.State.ExitCode}}' $(docker ps -aq) 2>/dev/null || true`
+    );
+
+    const lines = output.trim().split("\n");
+    const inspectIndex = lines.findIndex(l => l.includes("---INSPECT---"));
+
+    if (inspectIndex === -1) {
+      // Fallback: parse basic ps output only
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const [name, id, stateStr] = line.split("|");
+        if (!name || !id) continue;
+
+        const state = this.mapDockerState(stateStr || "stopped");
+        const health: ContainerHealth = {
+          state,
+          startedAt: null,
+          restartCount: 0,
+          exitCode: null,
+          uptime: state === "running" ? 60 : 0, // Assume stable if running
+          isStable: state === "running",
+          isCrashLooping: false,
+        };
+
+        conn.healthCache.set(name, { health, timestamp });
+        conn.healthCache.set(id, { health, timestamp });
+      }
+      return;
+    }
+
+    // Parse detailed inspect output
+    const inspectLines = lines.slice(inspectIndex + 1);
+    for (const line of inspectLines) {
+      if (!line.trim()) continue;
+
+      const parts = line.split("|");
+      if (parts.length < 5) continue;
+
+      // Remove leading slash from name
+      const name = (parts[0] || "").replace(/^\//, "");
+      const stateStr = parts[1] || "stopped";
+      const startedAtStr = parts[2];
+      const restartCount = parseInt(parts[3]) || 0;
+      const exitCode = parts[4] ? parseInt(parts[4]) : null;
+
+      if (!name) continue;
+
+      const state = this.mapDockerState(stateStr);
+
+      let startedAt: Date | null = null;
+      let uptime = 0;
+
+      if (startedAtStr && startedAtStr !== "0001-01-01T00:00:00Z") {
+        startedAt = new Date(startedAtStr);
+        if (state === "running" && !isNaN(startedAt.getTime())) {
+          uptime = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+        }
+      }
+
+      const isStable = state === "running" && uptime >= this.STABILITY_THRESHOLD;
+      const isCrashLooping = restartCount >= this.CRASH_LOOP_THRESHOLD && uptime < this.STABILITY_THRESHOLD;
+
+      const health: ContainerHealth = {
+        state,
+        startedAt,
+        restartCount,
+        exitCode,
+        uptime,
+        isStable,
+        isCrashLooping,
+      };
+
+      conn.healthCache.set(name, { health, timestamp });
     }
   }
 
@@ -1196,6 +1549,42 @@ class DockerService {
     }
   }
 
+  /**
+   * Get container health via Docker API for a specific server
+   */
+  private async getContainerHealthDockerAPIForServer(conn: ServerConnection, containerIdOrName: string): Promise<ContainerHealth> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    const container = conn.dockerClient.getContainer(containerIdOrName);
+    const info = await container.inspect();
+
+    const state = this.mapDockerState(info.State.Status);
+    const startedAt = info.State.StartedAt ? new Date(info.State.StartedAt) : null;
+    const restartCount = info.RestartCount || 0;
+    const exitCode = info.State.ExitCode;
+
+    // Calculate uptime
+    let uptime = 0;
+    if (startedAt && state === "running") {
+      uptime = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+    }
+
+    const isStable = state === "running" && uptime >= this.STABILITY_THRESHOLD;
+    const isCrashLooping = restartCount >= this.CRASH_LOOP_THRESHOLD && uptime < this.STABILITY_THRESHOLD;
+
+    return {
+      state,
+      startedAt,
+      restartCount,
+      exitCode,
+      uptime,
+      isStable,
+      isCrashLooping,
+    };
+  }
+
   private async getContainerHealthDockerAPI(containerIdOrName: string): Promise<ContainerHealth> {
     if (!this.dockerClient) {
       throw new Error("Docker client not connected");
@@ -1213,6 +1602,47 @@ class DockerService {
     let uptime = 0;
     if (startedAt && state === "running") {
       uptime = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+    }
+
+    const isStable = state === "running" && uptime >= this.STABILITY_THRESHOLD;
+    const isCrashLooping = restartCount >= this.CRASH_LOOP_THRESHOLD && uptime < this.STABILITY_THRESHOLD;
+
+    return {
+      state,
+      startedAt,
+      restartCount,
+      exitCode,
+      uptime,
+      isStable,
+      isCrashLooping,
+    };
+  }
+
+  /**
+   * Get container health via SSH for a specific server
+   */
+  private async getContainerHealthSSHForServer(config: ServerConfig, containerIdOrName: string): Promise<ContainerHealth> {
+    // Get detailed container info via SSH
+    const cmd = buildDockerCommand("inspect", containerIdOrName, "--format", "{{.State.Status}}|{{.State.StartedAt}}|{{.RestartCount}}|{{.State.ExitCode}}");
+    const output = await this.execSSHCommandForServer(
+      config,
+      `${cmd} 2>/dev/null || echo "stopped|||0"`
+    );
+
+    const parts = output.trim().split("|");
+    const state = this.mapDockerState(parts[0] || "stopped");
+    const startedAtStr = parts[1];
+    const restartCount = parseInt(parts[2]) || 0;
+    const exitCode = parts[3] ? parseInt(parts[3]) : null;
+
+    let startedAt: Date | null = null;
+    let uptime = 0;
+
+    if (startedAtStr && startedAtStr !== "0001-01-01T00:00:00Z") {
+      startedAt = new Date(startedAtStr);
+      if (state === "running") {
+        uptime = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+      }
     }
 
     const isStable = state === "running" && uptime >= this.STABILITY_THRESHOLD;

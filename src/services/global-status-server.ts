@@ -659,9 +659,9 @@ class GlobalStatusServer {
       // Get server config
       let config: ServerConfig | null = null;
       if (serverId && serverId !== "default") {
-        config = globalSettings.getServerById(serverId);
+        config = globalSettings.getServerById(serverId) || null;
       } else {
-        config = globalSettings.getServerConfig();
+        config = globalSettings.getServerConfig() || null;
       }
 
       if (!config) {
