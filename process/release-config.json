@@ -1,22 +1,21 @@
 {
   "releaseType": "patch",
-  "description": "Fix Global Status multi-server support with clickable containers",
+  "description": "Add enhanced logging for Global Status debugging",
   "changes": [
-    "Added server-specific listContainersForServer method",
-    "Updated Global Status to use ensureServerConnection instead of configure",
-    "Fixed handleOpenLogs to pass serverConfig to log-server",
-    "Now displays ALL containers (running and stopped) from all servers"
+    "Added detailed logging for server configuration discovery",
+    "Added logging for each server connection attempt",
+    "Added logging for container fetching from each server",
+    "Added error message broadcasting to clients when status fetch fails"
   ],
   "features": [
-    "Global Status now shows containers from all configured servers",
-    "Click on any container to view its logs in real-time",
-    "Multi-server support without state interference"
+    "Better error reporting when Global Status fails to load",
+    "More detailed logs for debugging multi-server issues"
   ],
   "fixes": [
-    "Global Status changing global server state and interfering with buttons",
-    "Clicking containers not opening logs on correct server",
-    "Only showing running containers instead of all containers"
+    "Global Status showing 'Loading...' indefinitely without error",
+    "No feedback when server configuration is missing",
+    "Silent failures when server connections fail"
   ],
   "breaking": [],
-  "notes": "Global Status now fully supports multi-server with clickable containers for logs"
+  "notes": "Enhanced logging to diagnose Global Status loading issues"
 }

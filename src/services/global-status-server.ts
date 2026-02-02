@@ -720,12 +720,19 @@ class GlobalStatusServer {
 
       // Get all configured servers
       const serverConfigs = globalSettings.getServers();
+      pluginLogger.info(`Got ${serverConfigs.length} server configs from getServers()`, "global-status");
+
       const singleServer = globalSettings.getServerConfig();
+      pluginLogger.info(`Got single server config: ${singleServer ? 'yes' : 'no'}`, "global-status");
 
       // Use multi-server config if available, otherwise fall back to single server
       const serversToCheck = serverConfigs.length > 0 ? serverConfigs : (singleServer ? [singleServer] : []);
 
       pluginLogger.info(`Found ${serversToCheck.length} server(s) to check`, "global-status");
+
+      if (serversToCheck.length === 0) {
+        pluginLogger.warn(`No servers configured! Sending empty status.`, "global-status");
+      }
 
       // Fetch status from each server
       for (const config of serversToCheck) {
@@ -792,8 +799,23 @@ class GlobalStatusServer {
 
       pluginLogger.info(`Sent status update to ${sentCount} client(s)`, "global-status");
     } catch (error) {
-      pluginLogger.error(`Failed to broadcast status: ${error instanceof Error ? error.message : "Unknown error"}`, "global-status");
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      pluginLogger.error(`Failed to broadcast status: ${errorMsg}`, "global-status");
       pluginLogger.error(`Stack trace: ${error instanceof Error ? error.stack : "No stack"}`, "global-status");
+
+      // Send error message to clients
+      const errorMessage: StatusMessage = {
+        type: "error",
+        message: `Failed to fetch server status: ${errorMsg}`,
+        timestamp: Date.now()
+      };
+
+      const messageStr = JSON.stringify(errorMessage);
+      this.clients.forEach((client) => {
+        if (client.readyState === WS_OPEN) {
+          client.send(messageStr);
+        }
+      });
     }
   }
 
