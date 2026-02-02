@@ -342,32 +342,32 @@ class GlobalStatusServer {
     let serversData = [];
 
     function connect() {
-      console.log('Attempting to connect to WebSocket at ws://localhost:' + ${this.PORT});
+      console.log('[Global Status] Connecting to WebSocket at port ' + ${this.PORT});
       ws = new WebSocket('ws://localhost:' + ${this.PORT});
 
       ws.onopen = function() {
-        console.log('✅ WebSocket connected successfully');
+        console.log('[Global Status] WebSocket connected');
       };
 
       ws.onmessage = function(event) {
-        console.log('📨 Received raw message:', event.data.substring(0, 200) + (event.data.length > 200 ? '...' : ''));
+        console.log('[Global Status] Received message, length:', event.data.length);
         try {
           const msg = JSON.parse(event.data);
-          console.log('📋 Parsed message type:', msg.type, 'servers:', msg.servers?.length);
+          console.log('[Global Status] Message type:', msg.type, 'servers:', msg.servers ? msg.servers.length : 0);
           handleMessage(msg);
         } catch (e) {
-          console.error('❌ Failed to parse message:', e);
-          console.error('Raw data:', event.data);
+          console.error('[Global Status] Failed to parse message:', e);
+          console.error('[Global Status] Raw data:', event.data.substring(0, 500));
         }
       };
 
       ws.onclose = function(event) {
-        console.log('🔌 WebSocket disconnected (code:', event.code, 'reason:', event.reason, '), reconnecting in 2s...');
+        console.log('[Global Status] WebSocket closed, code:', event.code, 'reason:', event.reason);
         setTimeout(connect, 2000);
       };
 
       ws.onerror = function(error) {
-        console.error('❌ WebSocket error:', error);
+        console.error('[Global Status] WebSocket error:', error);
       };
     }
 
