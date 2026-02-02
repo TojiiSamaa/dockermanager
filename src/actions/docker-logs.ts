@@ -40,33 +40,34 @@ export class DockerLogsAction extends SingletonAction<LogsSettings> {
    * Ensure connection to the correct server
    */
   private async ensureConnected(serverId?: string): Promise<boolean> {
-    let config;
-    if (serverId) {
-      config = globalSettings.getServerById(serverId);
-      pluginLogger.info(`Connecting to server by ID: ${serverId}`, "logs");
-    } else {
-      config = globalSettings.getServerConfig();
-      pluginLogger.info(`Connecting to default server`, "logs");
-    }
+    try {
+      let config;
+      if (serverId) {
+        config = globalSettings.getServerById(serverId);
+      } else {
+        config = globalSettings.getServerConfig();
+      }
 
-    if (!config) {
-      pluginLogger.error(`No server config found for serverId: ${serverId}`, "logs");
+      if (!config) {
+        pluginLogger.error(`No server config found for serverId: ${serverId}`, "logs");
+        return false;
+      }
+
+      // Use the connection pool method - automatically checks if already connected
+      const connected = await dockerService.ensureServerConnection(config);
+      if (connected) {
+        // Also set as current for backwards compatibility
+        await dockerService.configure(config);
+      } else {
+        const targetHost = config.sshHost || config.dockerHost;
+        pluginLogger.error(`Failed to connect to server: ${targetHost}`, "logs");
+      }
+
+      return connected;
+    } catch (error) {
+      pluginLogger.error(`Error in ensureConnected: ${error instanceof Error ? error.message : String(error)}`, "logs");
       return false;
     }
-
-    // IMPORTANT: Configure and connect to THIS specific server
-    // This ensures all subsequent docker commands use the correct connection
-    await dockerService.configure(config);
-    const connected = await dockerService.connect();
-
-    if (connected) {
-      const host = dockerService.getActiveHost();
-      pluginLogger.info(`Successfully connected to: ${host}`, "logs");
-    } else {
-      pluginLogger.error(`Failed to connect to server: ${config.sshHost || config.dockerHost}`, "logs");
-    }
-
-    return connected;
   }
 
   override async onWillAppear(ev: WillAppearEvent<LogsSettings>): Promise<void> {

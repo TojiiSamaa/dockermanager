@@ -19,8 +19,8 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const packageJsonPath = path.join(__dirname, '..', 'package.json');
-const configPath = path.join(__dirname, '..', 'process', 'release-config.json');
+const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+const configPath = path.join(__dirname, '..', 'release-config.json');
 
 // Colors for console
 const colors = {
@@ -39,7 +39,7 @@ function log(message, color = 'reset') {
 function run(command, description) {
   log(`\n🔄 ${description}...`, 'blue');
   try {
-    execSync(command, { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+    execSync(command, { stdio: 'inherit', cwd: path.join(__dirname, '..', '..') });
     log(`✅ ${description} complete`, 'green');
   } catch (error) {
     log(`❌ ${description} failed`, 'red');
@@ -198,7 +198,7 @@ async function main() {
 
   // Step 6: Git commit
   const commitMessage = generateCommitMessage(newVersion, config);
-  const commitFile = path.join(__dirname, '..', '.commit-message.tmp');
+  const commitFile = path.join(__dirname, '..', '..', '.commit-message.tmp');
   fs.writeFileSync(commitFile, commitMessage, 'utf8');
 
   try {

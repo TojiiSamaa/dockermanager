@@ -280,7 +280,7 @@
       const descriptions = {
         dangling: "<strong>Images orphelines:</strong> Images sans tag, généralement des restes de builds précédents. Sûr à supprimer.",
         unused: "<strong>Images inutilisées:</strong> Images qui ne sont pas utilisées par un container actif.",
-        all: "<strong>Toutes les images:</strong> Supprime toutes les images non utilisées par un container. <span class='warning-text'>⚠️ Peut nécessiter de re-télécharger des images.</span>"
+        all: "<strong>Toutes les images:</strong> Supprime toutes les images non utilisées par un container. <span class=\"warning-text\">⚠️ Peut nécessiter de re-télécharger des images.</span>"
       };
 
       descEl.innerHTML = descriptions[pruneType] || descriptions.dangling;

@@ -1,18 +1,19 @@
 {
-  "releaseType": "minor",
-  "description": "Add versioned plugin releases with automatic archiving",
+  "releaseType": "patch",
+  "description": "Fix JavaScript errors and excessive connection logging",
   "changes": [
-    "Plugin files now versioned (docker-manager-vX.Y.Z.streamDeckPlugin)",
-    "Automatic archiving to releases/ folder",
-    "Old versions preserved instead of overwritten",
-    "Updated both process scripts with release archiving"
+    "Fixed JavaScript syntax error in network-pi.html",
+    "Fixed JavaScript syntax error in prune-pi.html",
+    "Reduced excessive connection logs in docker-logs action",
+    "Fixed connection pooling to reuse existing connections"
   ],
-  "features": [
-    "Versioned plugin filenames in releases/ folder",
-    "Automatic copy to releases/ after packaging",
-    "Clear version tracking for all releases"
+  "features": [],
+  "fixes": [
+    "JavaScript 'Unexpected string' error in network and prune actions",
+    "Excessive 'Connecting to server' logs every few seconds",
+    "Unnecessary reconnections when already connected",
+    "Connection pooling not working properly in logs action"
   ],
-  "fixes": [],
   "breaking": [],
-  "notes": "Process scripts now automatically copy versioned plugins to releases/"
+  "notes": "Bug fix and performance improvement release"
 }
