@@ -462,8 +462,8 @@ class GlobalStatusServer {
 
       if (server.containers.length === 0) {
         html += '<div class="empty-state">';
-        html += '<h2>No running containers</h2>';
-        html += '<p>All containers are stopped on this server</p>';
+        html += '<h2>No containers found</h2>';
+        html += '<p>This server has no containers</p>';
         html += '</div>';
         return html;
       }
@@ -670,9 +670,9 @@ class GlobalStatusServer {
         return;
       }
 
-      // Connect to the server
-      await dockerService.configure(config);
-      const connected = await dockerService.connect();
+      // Connect to the server using multi-server safe method
+      pluginLogger.info(`Connecting to server for logs: ${serverName}`, "global-status");
+      const connected = await dockerService.ensureServerConnection(config);
 
       if (!connected) {
         res.writeHead(500);
@@ -680,14 +680,17 @@ class GlobalStatusServer {
         return;
       }
 
-      // Create log server
+      pluginLogger.info(`Creating log server for ${containerName} on server ${serverName}`, "global-status");
+
+      // Create log server with serverConfig for multi-server support
       const logServer = await logServerManager.createServer(
         containerId,
         containerName,
         200, // logLines
         2,   // refreshRate
         "full", // windowFormat
-        serverName || undefined
+        serverName || undefined,
+        config  // Pass server config for multi-server support
       );
 
       if (!logServer) {
@@ -738,28 +741,27 @@ class GlobalStatusServer {
         };
 
         try {
-          // IMPORTANT: Configure and connect to THIS specific server
-          // This ensures listContainers() uses the correct connection
-          await dockerService.configure(config);
-          const connected = await dockerService.connect();
+          // Use multi-server safe method - does NOT change global state
+          pluginLogger.info(`Connecting to server ${serverName} (${serverStatus.host})`, "global-status");
+          const connected = await dockerService.ensureServerConnection(config);
           serverStatus.connected = connected;
 
           if (connected) {
-            serverStatus.connectedHost = dockerService.getActiveHost() || undefined;
+            serverStatus.connectedHost = config.sshHost || config.dockerHost || "Unknown";
 
-            // Get containers (only running ones for the dashboard)
-            const containers = await dockerService.listContainers();
+            // Get containers using server-specific method
+            const containers = await dockerService.listContainersForServer(config);
+            pluginLogger.info(`Found ${containers.length} containers on server ${serverName}`, "global-status");
 
+            // Add all containers (running and stopped)
             for (const container of containers) {
-              if (container.state === "running") {
-                serverStatus.containers.push({
-                  id: container.id,
-                  name: container.name,
-                  state: container.state,
-                  status: container.status,
-                  image: container.image
-                });
-              }
+              serverStatus.containers.push({
+                id: container.id,
+                name: container.name,
+                state: container.state,
+                status: container.status,
+                image: container.image
+              });
             }
           }
         } catch (error) {

@@ -663,6 +663,65 @@ class DockerService {
     return this.currentConnection?.connected || false;
   }
 
+  /**
+   * List containers for a specific server (multi-server safe)
+   */
+  async listContainersForServer(config: ServerConfig): Promise<ContainerInfo[]> {
+    const connected = await this.ensureServerConnection(config);
+    if (!connected) {
+      return [];
+    }
+
+    const conn = this.getConnection(config);
+
+    if (config.connectionType === "docker-api") {
+      return this.listContainersDockerAPIForServer(conn);
+    } else {
+      return this.listContainersSSHForServer(config);
+    }
+  }
+
+  private async listContainersDockerAPIForServer(conn: ServerConnection): Promise<ContainerInfo[]> {
+    if (!conn.dockerClient) {
+      throw new Error("Docker client not connected");
+    }
+
+    const containers = await conn.dockerClient.listContainers({ all: true });
+
+    return containers.map((container) => ({
+      id: container.Id.substring(0, 12),
+      name: container.Names[0]?.replace(/^\//, "") || container.Id.substring(0, 12),
+      image: container.Image,
+      state: this.mapDockerState(container.State),
+      status: container.Status,
+      iconUrl: container.Labels?.["net.unraid.docker.icon"] || undefined,
+    }));
+  }
+
+  private async listContainersSSHForServer(config: ServerConfig): Promise<ContainerInfo[]> {
+    const cmd = `docker ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.State}}|{{.Status}}'`;
+    const output = await this.execSSHCommandForServer(config, cmd);
+
+    const containers: ContainerInfo[] = [];
+    const lines = output.trim().split("\n");
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const [id, name, image, stateStr, status] = line.split("|");
+      if (!id || !name) continue;
+
+      containers.push({
+        id: id.substring(0, 12),
+        name,
+        image,
+        state: this.mapDockerState(stateStr),
+        status,
+      });
+    }
+
+    return containers;
+  }
+
   async listContainers(): Promise<ContainerInfo[]> {
     if (!this.connected) {
       await this.connect();

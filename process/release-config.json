@@ -1,21 +1,22 @@
 {
   "releaseType": "patch",
-  "description": "Fix log-server multi-server support and add detailed logging",
+  "description": "Fix Global Status multi-server support with clickable containers",
   "changes": [
-    "Added server-specific getContainerLogsForServer method",
-    "Updated log-server to use serverConfig for fetching logs",
-    "Added detailed logging to trace which server is used for log streaming",
-    "Removed global isConnected() check that broke multi-server"
+    "Added server-specific listContainersForServer method",
+    "Updated Global Status to use ensureServerConnection instead of configure",
+    "Fixed handleOpenLogs to pass serverConfig to log-server",
+    "Now displays ALL containers (running and stopped) from all servers"
   ],
   "features": [
-    "Log streaming now works correctly with multiple servers",
-    "Enhanced logging shows server info for each log operation"
+    "Global Status now shows containers from all configured servers",
+    "Click on any container to view its logs in real-time",
+    "Multi-server support without state interference"
   ],
   "fixes": [
-    "Log server showing 'No such container' error when using multiple servers",
-    "Logs being fetched from wrong server in multi-server setup",
-    "Continuous connection errors in log streaming"
+    "Global Status changing global server state and interfering with buttons",
+    "Clicking containers not opening logs on correct server",
+    "Only showing running containers instead of all containers"
   ],
   "breaking": [],
-  "notes": "Critical fix for log-server multi-server functionality - logs now stream from correct server"
+  "notes": "Global Status now fully supports multi-server with clickable containers for logs"
 }
