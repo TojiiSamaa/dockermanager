@@ -1,15 +1,20 @@
 {
   "releaseType": "patch",
-  "description": "Fix incorrect icon color during container startup",
+  "description": "Add automatic version synchronization system",
   "changes": [
-    "Fixed icon showing red during container startup transition",
-    "Icon now correctly shows green when container is starting"
+    "Created sync-version.cjs script for automatic version synchronization",
+    "Version now automatically synced to all HTML files before build",
+    "Integrated version sync into both accelerated and standard processes",
+    "Fixed version display in plugin-config.html"
   ],
-  "features": [],
+  "features": [
+    "Single source of truth for version (package.json)",
+    "Automatic version synchronization across all files"
+  ],
   "fixes": [
-    "Red icon displayed during startup instead of green",
-    "Inverted color transition logic in starting animation"
+    "Version number not updated in configuration page",
+    "Manual version updates no longer needed"
   ],
   "breaking": [],
-  "notes": "Visual fix - startup animation now correctly shows green icon"
+  "notes": "Infrastructure improvement - version management is now fully automated"
 }

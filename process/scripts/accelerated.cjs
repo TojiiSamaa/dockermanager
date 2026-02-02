@@ -168,6 +168,9 @@ async function main() {
   const newVersion = getVersion();
   log(`\n📦 Nouvelle version: ${newVersion}`, 'green');
 
+  // Step 2b: Sync version everywhere
+  run('node scripts/sync-version.cjs', 'Sync version to all files');
+
   // Step 3: Build
   run('npm run build', 'Build');
 

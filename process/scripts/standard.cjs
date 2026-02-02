@@ -181,6 +181,9 @@ async function main() {
   const newVersion = getVersion();
   log(`\n📦 Nouvelle version: v${newVersion}`, 'green');
 
+  // Step 2b: Sync version everywhere
+  run('node scripts/sync-version.cjs', 'Sync version to all files');
+
   // Step 3: Build
   log('\n🔨 Phase 2: Build & Package', 'magenta');
   log('─'.repeat(50), 'blue');
