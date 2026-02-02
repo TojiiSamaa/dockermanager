@@ -519,15 +519,15 @@ class IconGenerator {
     options: IconOptions = {}
   ): Promise<string> {
     const size = options.size || DEFAULT_ICON_SIZE;
-    const badgeSize = options.statusDotSize || DEFAULT_DOT_SIZE;
+    const badgeSize = options.statusDotSize || 40; // Slightly bigger for better visibility
     const backgroundColor = options.backgroundColor;
 
     const letter = containerName.charAt(0).toUpperCase();
     const fontSize = Math.floor(size * 0.5);
 
-    // Position badge at top-right
+    // Position badge at bottom-right (changed from top-right)
     const badgeX = size - badgeSize - 8;
-    const badgeY = 8;
+    const badgeY = size - badgeSize - 8; // Bottom instead of top
 
     // Build the layers: background → content → badge
     let bgDef: string;
