@@ -1,22 +1,24 @@
 {
-  "releaseType": "patch",
-  "description": "Fix Global Status not loading and improve settings persistence",
+  "releaseType": "minor",
+  "description": "Global Status working release with settings persistence",
   "changes": [
     "Fixed critical bug where server settings were not persisted to Stream Deck storage",
-    "Added extensive logging to settings manager for debugging",
+    "Added extensive logging to settings manager and Global Status for debugging",
     "Added console logging to Global Status page for troubleshooting",
     "Improved error handling when sending WebSocket messages",
-    "Added immediate empty status message when no servers configured"
+    "Fixed JavaScript syntax error in Global Status HTML page"
   ],
   "features": [
     "Global Status now shows 'No servers configured' message immediately",
-    "Better client-side diagnostics with browser console logging"
+    "Better client-side diagnostics with browser console logging",
+    "Settings persistence across plugin restarts"
   ],
   "fixes": [
     "Global Status page stuck on 'Loading servers...' indefinitely",
     "Server configurations not being saved properly between plugin restarts",
+    "JavaScript syntax error causing Global Status page to fail loading",
     "Silent failures in WebSocket message broadcasting"
   ],
   "breaking": [],
-  "notes": "This release fixes the core issue where Global Status was not loading. The problem was that server settings were cached in memory but not persisted to Stream Deck's storage, causing them to be unavailable when Global Status tried to fetch them."
+  "notes": "This is the stable release that fixes Global Status. v2.4.9 had settings persistence fix but JavaScript error, v2.4.10 fixed the JS error. This v2.5.0 consolidates all fixes into a proper working release."
 }

@@ -1,6 +1,6 @@
 {
   "name": "streamdeck-docker-manager",
-  "version": "2.4.10",
+  "version": "2.5.0",
   "description": "Stream Deck plugin to manage Docker containers on Unraid/Linux servers",
   "type": "module",
   "main": "io.deckops.containers.sdPlugin/bin/plugin.js",
