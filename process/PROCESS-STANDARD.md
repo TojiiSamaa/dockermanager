@@ -6,6 +6,34 @@
 
 ---
 
+## 🔄 Process Accéléré vs Standard
+
+**Vous cherchez le processus rapide pour développement quotidien?**
+→ Voir **PROCESS-ACCELERATED.md** (une seule commande: `npm run release`)
+
+**Ce document (Process Standard)** est pour les releases publiques officielles avec tests complets, audit sécurité, et upload marketplace.
+
+---
+
+## 🔧 Scripts Disponibles
+
+Ce process utilise les scripts de version management:
+
+```bash
+# Gestion de version (automatique)
+npm run version:patch    # 2.3.1 → 2.3.2
+npm run version:minor    # 2.3.1 → 2.4.0
+npm run version:major    # 2.3.1 → 3.0.0
+
+# Build & Package
+npm run build           # Compile TypeScript
+npm run pack            # Build + Package plugin
+```
+
+**Note:** Le process standard est **manuel** et donne le contrôle total sur chaque étape. Pour automatisation complète, voir PROCESS-ACCELERATED.md.
+
+---
+
 ## 📋 Checklist Complète
 
 **Phase 1: Préparation**
@@ -119,30 +147,31 @@ await runAllFunctionalityTests(config, "test-container-name");
 
 ### **5. Update Version**
 
-**Fichier:** `io.deckops.containers.sdPlugin/manifest.json`
+**Utiliser le script automatique:**
 
-```json
-{
-  "Version": "2.4.0.0",  // ← Incrémenter
-  ...
-}
+```bash
+# Pour une nouvelle feature (Minor)
+npm run version:minor    # 2.3.1 → 2.4.0
+
+# Pour un bug fix (Patch)
+npm run version:patch    # 2.3.1 → 2.3.2
+
+# Pour breaking changes (Major)
+npm run version:major    # 2.3.1 → 3.0.0
 ```
 
-**Fichier:** `package.json`
+**Ce que ça fait:**
+- ✅ Met à jour `package.json` (ex: 2.4.0)
+- ✅ Met à jour `manifest.json` (ex: 2.4.0.0)
+- ✅ Synchronise automatiquement les deux fichiers
 
-```json
-{
-  "version": "2.4.0",  // ← Incrémenter (sans le .0 final)
-  ...
-}
-```
+**Source de vérité:** `package.json` est la source de vérité. Le script synchronise automatiquement vers `manifest.json`.
 
 **Versioning:**
-- **Major.Minor.Patch.Build** (ex: 2.4.0.0)
+- **Major.Minor.Patch** (ex: 2.4.0)
 - Major: Breaking changes
 - Minor: Nouvelles features
 - Patch: Bug fixes
-- Build: Rebuild sans changements
 
 ---
 
@@ -206,9 +235,16 @@ macOS: ~/Library/Logs/ElgatoStreamDeck/
 
 ### **9. Git Commit & Tag**
 
+**Vérifier la version actuelle:**
+```bash
+# La version est dans package.json et manifest.json
+# Vérifier avec:
+cat package.json | grep version
+```
+
 **Commit les changements:**
 ```bash
-git add .
+git add -A
 git commit -m "Release v2.4.0: [description des changements]
 
 - Nouvelle feature X
@@ -220,10 +256,13 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 
 **Créer un tag:**
 ```bash
+# Utiliser la version de package.json (ex: 2.4.0)
 git tag -a v2.4.0 -m "Release v2.4.0"
 git push origin main
 git push origin v2.4.0
 ```
+
+**Note:** Les scripts de version management (`npm run version:*`) mettent à jour les versions mais NE committent PAS automatiquement dans le process standard. C'est intentionnel pour vous laisser le contrôle complet.
 
 ---
 

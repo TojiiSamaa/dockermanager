@@ -1,6 +1,6 @@
 {
   "Name": "Docker Manager",
-  "Version": "2.3.1.0",
+  "Version": "2.3.3.0",
   "Author": "DeckOps",
   "Description": "Manage Docker containers on Unraid/Linux servers directly from your Stream Deck",
   "Category": "Docker Manager",

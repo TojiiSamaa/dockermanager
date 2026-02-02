@@ -1,6 +1,6 @@
 {
   "name": "streamdeck-docker-manager",
-  "version": "2.3.1",
+  "version": "2.3.3",
   "description": "Stream Deck plugin to manage Docker containers on Unraid/Linux servers",
   "type": "module",
   "main": "io.deckops.containers.sdPlugin/bin/plugin.js",
@@ -15,8 +15,10 @@
     "version:minor": "node scripts/version-bump.cjs minor",
     "version:major": "node scripts/version-bump.cjs major",
     "version:sync": "node scripts/version-bump.cjs sync",
-    "release": "node scripts/release.cjs patch",
-    "release:minor": "node scripts/release.cjs minor"
+    "process:accelerated": "node process/scripts/accelerated.cjs",
+    "process:standard": "node process/scripts/standard.cjs",
+    "release": "npm run process:accelerated",
+    "release:minor": "npm run process:accelerated"
   },
   "keywords": [
     "streamdeck",
