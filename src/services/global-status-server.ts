@@ -487,7 +487,7 @@ class GlobalStatusServer {
                           '&serverId=' + encodeURIComponent(serverId) +
                           '&serverName=' + encodeURIComponent(serverName);
 
-      let html = '<div class="container-card" onclick="openContainerLogs(\'' + openLogsUrl.replace(/'/g, "\\'") + '\')">';
+      let html = '<div class="container-card" onclick="openContainerLogs(' + JSON.stringify(openLogsUrl) + ')">';
 
       html += '<div class="container-header">';
       html += '<div class="container-name">' + escapeHtml(container.name) + '</div>';
