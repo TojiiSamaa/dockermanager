@@ -659,6 +659,15 @@ class DockerService {
     return this.currentConnection?.activeHost || null;
   }
 
+  /**
+   * Get the active host (IP/hostname) that was successfully connected to for a specific server
+   * Useful for multi-server setups to know which backup address is being used
+   */
+  getServerActiveHost(config: ServerConfig): string | null {
+    const conn = this.getConnection(config);
+    return conn.activeHost || null;
+  }
+
   isConnected(): boolean {
     return this.currentConnection?.connected || false;
   }

@@ -776,7 +776,10 @@ class GlobalStatusServer {
           serverStatus.connected = connected;
 
           if (connected) {
-            serverStatus.connectedHost = config.sshHost || config.dockerHost || "Unknown";
+            // Get the actual host that was connected to (might be a backup address)
+            const actualHost = dockerService.getServerActiveHost(config);
+            serverStatus.connectedHost = actualHost || config.sshHost || config.dockerHost || "Unknown";
+            pluginLogger.info(`Actually connected to: ${serverStatus.connectedHost}`, "global-status");
 
             // Get containers using server-specific method
             const containers = await dockerService.listContainersForServer(config);
