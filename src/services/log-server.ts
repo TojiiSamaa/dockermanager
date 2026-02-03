@@ -2,6 +2,7 @@ import * as http from "http";
 import WebSocket, { WebSocketServer } from "ws";
 import { dockerService } from "./docker-service";
 import { pluginLogger } from "../actions/debug-logs";
+import { ComposeFile } from "./compose-service";
 
 // WebSocket ready states
 const WS_OPEN = 1;
@@ -17,6 +18,9 @@ interface LogServerInstance {
   clients: Set<WebSocket>;
   refreshInterval: NodeJS.Timeout | null;
   windowFormat: "small" | "full";
+  isCompose?: boolean;  // True if this is a compose log server
+  composeFile?: ComposeFile;  // Compose file for compose log servers
+  targetService?: string;  // Target service for compose log servers
 }
 
 interface LogMessage {
@@ -725,6 +729,557 @@ class LogServerManager {
       this.usedPorts.delete(port);
       return null;
     }
+  }
+
+  /**
+   * Create a log server for Docker Compose logs
+   * Uses `docker compose logs` instead of `docker logs`
+   */
+  async createComposeLogServer(
+    composeFile: ComposeFile,
+    targetService: string | undefined,
+    displayName: string,
+    logLines: number = 200,
+    refreshRate: number = 2,
+    windowFormat: "small" | "full" = "full",
+    serverConfig?: any
+  ): Promise<{ port: number; url: string } | null> {
+    // Create a unique key for this compose log server
+    const composeKey = `compose:${composeFile.path}:${targetService || "all"}`;
+
+    // Check if we already have a server for this compose stack/service
+    const existingServer = this.servers.get(composeKey);
+    if (existingServer) {
+      pluginLogger.info(`Reusing existing compose log server for ${displayName} on port ${existingServer.port}`, "log-server");
+      return { port: existingServer.port, url: `http://localhost:${existingServer.port}` };
+    }
+
+    const port = this.findAvailablePort();
+    if (port === null) {
+      pluginLogger.error("No available ports for compose log server", "log-server");
+      return null;
+    }
+
+    try {
+      const clients = new Set<WebSocket>();
+
+      // Create HTTP server
+      const httpServer = http.createServer((req, res) => {
+        if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(this.generateComposeLogViewerHtml(displayName, composeFile, targetService, port, windowFormat));
+        } else if (req.url === "/health") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ status: "ok", clients: clients.size }));
+        } else {
+          res.writeHead(404);
+          res.end("Not found");
+        }
+      });
+
+      // Create WebSocket server
+      const wsServer = new WebSocketServer({ server: httpServer });
+
+      wsServer.on("connection", async (ws: WebSocket) => {
+        pluginLogger.info(`WebSocket client connected to compose log server for ${displayName}`, "log-server");
+        clients.add(ws);
+
+        // Send initial logs
+        try {
+          const logs = await this.getComposeLogs(composeFile, targetService, logLines, serverConfig);
+          pluginLogger.info(`Retrieved ${logs.length} chars of compose logs for ${displayName}`, "log-server");
+          const message: LogMessage = {
+            type: "logs",
+            data: logs,
+            timestamp: Date.now()
+          };
+          ws.send(JSON.stringify(message));
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          pluginLogger.error(`Failed to get initial compose logs for ${displayName}: ${errorMessage}`, "log-server");
+
+          const errorMsg: LogMessage = {
+            type: "error",
+            message: `Cannot get compose logs for "${displayName}".\n\nError: ${errorMessage}`,
+            timestamp: Date.now()
+          };
+          ws.send(JSON.stringify(errorMsg));
+        }
+
+        ws.on("close", () => {
+          pluginLogger.info(`WebSocket client disconnected from compose log server for ${displayName}`, "log-server");
+          clients.delete(ws);
+        });
+
+        ws.on("error", (error) => {
+          pluginLogger.error(`WebSocket error in compose log server: ${error.message}`, "log-server");
+          clients.delete(ws);
+        });
+      });
+
+      // Start the HTTP server
+      await new Promise<void>((resolve, reject) => {
+        httpServer.on("error", (err) => {
+          reject(err);
+        });
+        httpServer.listen(port, "127.0.0.1", () => {
+          resolve();
+        });
+      });
+
+      this.usedPorts.add(port);
+
+      // Set up log refresh interval
+      const refreshInterval = setInterval(async () => {
+        if (clients.size === 0) {
+          return;
+        }
+
+        try {
+          const logs = await this.getComposeLogs(composeFile, targetService, logLines, serverConfig);
+          const message: LogMessage = {
+            type: "logs",
+            data: logs,
+            timestamp: Date.now()
+          };
+          const messageStr = JSON.stringify(message);
+
+          clients.forEach((client) => {
+            if (client.readyState === WS_OPEN) {
+              client.send(messageStr);
+            }
+          });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          pluginLogger.error(`Failed to refresh compose logs for ${displayName}: ${errorMessage}`, "log-server");
+
+          const errorMsg: LogMessage = {
+            type: "error",
+            message: `Failed to fetch compose logs: ${errorMessage}`,
+            timestamp: Date.now()
+          };
+          const errorStr = JSON.stringify(errorMsg);
+
+          clients.forEach((client) => {
+            if (client.readyState === WS_OPEN) {
+              client.send(errorStr);
+            }
+          });
+        }
+      }, refreshRate * 1000);
+
+      // Store the server instance
+      const serverInstance: LogServerInstance = {
+        httpServer,
+        wsServer,
+        port,
+        containerId: composeKey,
+        containerName: displayName,
+        serverConfig: serverConfig || null,
+        clients,
+        refreshInterval,
+        windowFormat,
+        isCompose: true,
+        composeFile,
+        targetService
+      };
+
+      this.servers.set(composeKey, serverInstance);
+      pluginLogger.info(`Compose log server created for ${displayName} on port ${port}`, "log-server");
+
+      return { port, url: `http://localhost:${port}` };
+    } catch (error) {
+      pluginLogger.error(`Failed to create compose log server: ${error instanceof Error ? error.message : "Unknown error"}`, "log-server");
+      this.usedPorts.delete(port);
+      return null;
+    }
+  }
+
+  /**
+   * Get compose logs via SSH command
+   */
+  private async getComposeLogs(
+    composeFile: ComposeFile,
+    targetService: string | undefined,
+    logLines: number,
+    serverConfig?: any
+  ): Promise<string> {
+    const { directory, filename } = composeFile;
+
+    // Build the docker compose logs command
+    let cmd = `cd "${directory}" && docker compose -f "${filename}" logs --tail ${logLines} --no-color`;
+    if (targetService) {
+      cmd += ` ${targetService}`;
+    }
+
+    // Fallback to docker-compose if docker compose fails
+    const fallbackCmd = cmd.replace("docker compose", "docker-compose");
+    const fullCmd = `${cmd} 2>/dev/null || ${fallbackCmd} 2>/dev/null || echo "Failed to get compose logs"`;
+
+    // Execute via SSH
+    if (serverConfig) {
+      return await dockerService.execSSHCommandForServer(serverConfig, fullCmd);
+    } else {
+      return await (dockerService as any).execSSHCommand(fullCmd);
+    }
+  }
+
+  /**
+   * Generate HTML for compose log viewer (slightly different title)
+   */
+  private generateComposeLogViewerHtml(
+    displayName: string,
+    composeFile: ComposeFile,
+    targetService: string | undefined,
+    port: number,
+    windowFormat: "small" | "full"
+  ): string {
+    const escapedName = displayName
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    const serviceInfo = targetService ? ` (${targetService})` : " (all services)";
+    const isSmallWindow = windowFormat === "small";
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapedName} - Compose Logs</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+      background: #1a1a2e;
+      color: #E8E8E8;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: rgba(76,175,80,0.1);
+      border-bottom: 1px solid rgba(76,175,80,0.3);
+      padding: ${isSmallWindow ? "8px 12px" : "12px 16px"};
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      flex-wrap: ${isSmallWindow ? "wrap" : "nowrap"};
+      gap: 8px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      ${isSmallWindow ? "flex-basis: 100%; justify-content: space-between;" : "flex: 1;"}
+    }
+    .header h1 {
+      font-size: ${isSmallWindow ? "13px" : "16px"};
+      font-weight: 600;
+      color: #4CAF50;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .container-name {
+      font-size: ${isSmallWindow ? "13px" : "16px"};
+      color: #FFFFFF;
+      background: rgba(76,175,80,0.2);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      border: 1px solid rgba(76,175,80,0.4);
+      max-width: ${isSmallWindow ? "200px" : "400px"};
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .service-info {
+      font-size: 12px;
+      color: #888;
+      font-weight: normal;
+    }
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      ${isSmallWindow ? "justify-content: flex-end; flex-basis: 100%;" : ""}
+    }
+    .btn {
+      padding: ${isSmallWindow ? "4px 8px" : "6px 12px"};
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: ${isSmallWindow ? "10px" : "12px"};
+      background: rgba(255,255,255,0.1);
+      color: #E8E8E8;
+      border: 1px solid rgba(255,255,255,0.2);
+      transition: background 0.2s;
+    }
+    .btn:hover { background: rgba(255,255,255,0.15); }
+    .btn.active { background: rgba(76,175,80,0.3); border-color: rgba(76,175,80,0.5); }
+    .logs-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: ${isSmallWindow ? "8px 12px" : "12px 16px"};
+      background: #0d0d1a;
+    }
+    .logs-content {
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-size: ${isSmallWindow ? "10px" : "11px"};
+      line-height: 1.5;
+      color: #ccc;
+    }
+    .log-line {
+      padding: 2px 0;
+      border-left: 3px solid transparent;
+      padding-left: 8px;
+      margin-left: -8px;
+    }
+    .log-line:hover { background: rgba(255,255,255,0.05); }
+    .log-error { color: #F44336; border-left-color: #F44336; background: rgba(244,67,54,0.05); }
+    .log-warn { color: #FF9800; border-left-color: #FF9800; background: rgba(255,152,0,0.05); }
+    .log-info { color: #2196F3; border-left-color: #2196F3; }
+    .log-debug { color: #9E9E9E; border-left-color: #9E9E9E; }
+    .status-bar {
+      background: rgba(0,0,0,0.5);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: ${isSmallWindow ? "4px 12px" : "6px 16px"};
+      font-size: ${isSmallWindow ? "9px" : "11px"};
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .live-indicator { animation: pulse 1.5s infinite; }
+    .connection-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4CAF50;
+    }
+    .status-dot.disconnected { background: #F44336; }
+    .status-dot.connecting { background: #FF9800; animation: pulse 1s infinite; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>
+        📦 Compose Logs:
+        <span class="container-name" title="${escapedName}">${escapedName}</span>
+        <span class="service-info">${serviceInfo}</span>
+      </h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn active" onclick="toggleAutoScroll()" id="autoScrollBtn">Auto-scroll</button>
+      <button class="btn" onclick="scrollToBottom()">Bottom</button>
+      <button class="btn" onclick="copyAllLogs()">Copy</button>
+      <button class="btn" onclick="clearDisplay()">Clear</button>
+    </div>
+  </div>
+  <div class="logs-container" id="logsContainer">
+    <div class="logs-content" id="logsContent">
+      <div class="log-line log-info">Connecting to compose log stream...</div>
+    </div>
+  </div>
+  <div class="status-bar">
+    <span id="lineCount">0 lines</span>
+    <span class="connection-status">
+      <span class="status-dot connecting" id="statusDot"></span>
+      <span id="connectionStatus">Connecting...</span>
+    </span>
+    <span id="lastUpdate">--</span>
+  </div>
+  <script>
+    const wsPort = ${port};
+    let ws = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 10;
+    let autoScroll = true;
+    let allLogs = [];
+
+    function connect() {
+      updateConnectionStatus('connecting');
+
+      try {
+        ws = new WebSocket('ws://localhost:' + wsPort);
+
+        ws.onopen = function() {
+          console.log('WebSocket connected');
+          reconnectAttempts = 0;
+          updateConnectionStatus('connected');
+        };
+
+        ws.onmessage = function(event) {
+          try {
+            const msg = JSON.parse(event.data);
+            handleMessage(msg);
+          } catch (e) {
+            console.error('Failed to parse message:', e);
+          }
+        };
+
+        ws.onclose = function() {
+          console.log('WebSocket disconnected');
+          updateConnectionStatus('disconnected');
+          scheduleReconnect();
+        };
+
+        ws.onerror = function(error) {
+          console.error('WebSocket error:', error);
+          updateConnectionStatus('disconnected');
+        };
+      } catch (e) {
+        console.error('Failed to create WebSocket:', e);
+        updateConnectionStatus('disconnected');
+        scheduleReconnect();
+      }
+    }
+
+    function scheduleReconnect() {
+      if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+        console.log('Reconnecting in ' + delay + 'ms (attempt ' + reconnectAttempts + ')');
+        setTimeout(connect, delay);
+      } else {
+        document.getElementById('connectionStatus').textContent = 'Connection failed - refresh to retry';
+      }
+    }
+
+    function updateConnectionStatus(status) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('connectionStatus');
+
+      dot.className = 'status-dot';
+
+      switch (status) {
+        case 'connected':
+          dot.classList.add('connected');
+          text.innerHTML = '<span class="live-indicator" style="color:#4CAF50;">LIVE</span>';
+          break;
+        case 'connecting':
+          dot.classList.add('connecting');
+          text.textContent = 'Connecting...';
+          break;
+        case 'disconnected':
+          dot.classList.add('disconnected');
+          text.textContent = 'Disconnected';
+          break;
+      }
+    }
+
+    function handleMessage(msg) {
+      if (msg.type === 'logs') {
+        const newLogs = msg.data.split('\\n').filter(line => line.trim());
+        allLogs = newLogs;
+        displayLogs();
+        document.getElementById('lastUpdate').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+      } else if (msg.type === 'error') {
+        appendLogLine('[ERROR] ' + msg.message, 'error');
+      } else if (msg.type === 'info') {
+        appendLogLine('[INFO] ' + msg.message, 'info');
+      }
+    }
+
+    function displayLogs() {
+      const container = document.getElementById('logsContent');
+      const wasAtBottom = isScrolledToBottom();
+
+      let html = '';
+      allLogs.forEach((line, index) => {
+        let className = 'log-line';
+        if (/error|fatal|exception|fail|panic/i.test(line)) className += ' log-error';
+        else if (/warn|warning/i.test(line)) className += ' log-warn';
+        else if (/\\binfo\\b/i.test(line)) className += ' log-info';
+        else if (/debug|trace/i.test(line)) className += ' log-debug';
+
+        let escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html += '<div class="' + className + '">' + escaped + '</div>';
+      });
+
+      container.innerHTML = html;
+      document.getElementById('lineCount').textContent = allLogs.length + ' lines';
+
+      if (autoScroll && wasAtBottom) {
+        scrollToBottom();
+      }
+    }
+
+    function appendLogLine(text, level) {
+      const container = document.getElementById('logsContent');
+      const wasAtBottom = isScrolledToBottom();
+
+      const div = document.createElement('div');
+      div.className = 'log-line log-' + level;
+      div.textContent = text;
+      container.appendChild(div);
+
+      if (autoScroll && wasAtBottom) {
+        scrollToBottom();
+      }
+    }
+
+    function isScrolledToBottom() {
+      const container = document.getElementById('logsContainer');
+      return container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+    }
+
+    function scrollToBottom() {
+      const container = document.getElementById('logsContainer');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function toggleAutoScroll() {
+      autoScroll = !autoScroll;
+      const btn = document.getElementById('autoScrollBtn');
+      btn.classList.toggle('active', autoScroll);
+      btn.textContent = autoScroll ? 'Auto-scroll' : 'Manual';
+      if (autoScroll) {
+        scrollToBottom();
+      }
+    }
+
+    function clearDisplay() {
+      allLogs = [];
+      displayLogs();
+    }
+
+    function copyAllLogs() {
+      const text = allLogs.join('\\n');
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.background = 'rgba(76,175,80,0.3)';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = '';
+        }, 1500);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy logs to clipboard');
+      });
+    }
+
+    // Start connection
+    connect();
+  </script>
+</body>
+</html>`;
   }
 
   /**

@@ -21,7 +21,11 @@ interface ComposeSettings {
   displayName?: string;
   serverId?: string; // Server ID to use for this action
 
-  // Action configuration
+  // Action configuration - Task Sequences (new format)
+  shortPressTasks?: string[];  // Array of tasks: "toggle", "up", "down", "restart", "build", "pull", "logs", "wait:2", "wait:5", "wait:10"
+  longPressTasks?: string[];   // Array of tasks for long press
+
+  // Legacy action configuration (for backward compatibility)
   actionType: "toggle" | "up" | "down" | "restart" | "build" | "pull";
   longPressAction?: "none" | "down" | "restart" | "build" | "logs";
 
@@ -101,7 +105,7 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
 
   override async onKeyUp(ev: KeyUpEvent<ComposeSettings>): Promise<void> {
     const settings = ev.payload.settings;
-    const { composePath, projectName, actionType, longPressAction = "none", targetService } = settings;
+    const { composePath, projectName, targetService } = settings;
 
     if (!composePath) {
       return;
@@ -111,16 +115,34 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
     const pressDuration = Date.now() - keyDownAt;
     const isLongPress = pressDuration >= this.LONG_PRESS_THRESHOLD;
 
-    // Handle logs action separately (only on long press)
-    if (isLongPress && longPressAction === "logs") {
-      await this.openLogs(settings);
-      return;
+    // Determine which task sequence to execute
+    let tasksToExecute: string[] = [];
+
+    if (isLongPress && settings.longPressTasks && settings.longPressTasks.length > 0) {
+      // Use long press task sequence
+      tasksToExecute = settings.longPressTasks;
+    } else if (settings.shortPressTasks && settings.shortPressTasks.length > 0) {
+      // Use short press task sequence (or default for short press)
+      tasksToExecute = settings.shortPressTasks;
+    } else {
+      // Fallback to legacy single action format
+      const { actionType, longPressAction = "none" } = settings;
+
+      if (isLongPress && longPressAction === "logs") {
+        await this.openComposeLogs(settings);
+        return;
+      }
+
+      if (isLongPress && longPressAction !== "none" && longPressAction !== "logs") {
+        tasksToExecute = [longPressAction];
+      } else {
+        tasksToExecute = [actionType];
+      }
     }
 
-    // Determine which action to execute
-    let effectiveAction: "toggle" | "up" | "down" | "restart" | "build" | "pull" = actionType;
-    if (isLongPress && longPressAction !== "none" && longPressAction !== "logs") {
-      effectiveAction = longPressAction;
+    if (tasksToExecute.length === 0) {
+      pluginLogger.warn("No tasks to execute", "compose");
+      return;
     }
 
     try {
@@ -129,60 +151,40 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
       const composeFile = await this.getComposeFile(settings);
       if (!composeFile) {
         pluginLogger.error(`Compose file not found: ${composePath}`, "compose");
+        await ev.action.showAlert();
         return;
       }
 
-      pluginLogger.info(`Executing ${effectiveAction} on ${projectName || composePath}`, "compose");
+      pluginLogger.info(`Executing task sequence [${tasksToExecute.join(" → ")}] on ${projectName || composePath}`, "compose");
 
-      let success = false;
-      let shouldOpenLogs = false;
+      // Execute each task in sequence
+      for (const task of tasksToExecute) {
+        pluginLogger.info(`Executing task: ${task}`, "compose");
 
-      switch (effectiveAction) {
-        case "toggle": {
-          const stack = await composeService.getStackStatus(composeFile);
-          if (stack.status === "running" || stack.status === "partial") {
-            success = await composeService.down(composeFile, targetService);
-          } else {
-            success = await composeService.up(composeFile, {
-              build: settings.buildOnUp,
-              service: targetService
-            });
-            shouldOpenLogs = settings.openLogsOnUp || false;
-          }
-          break;
+        // Handle wait tasks
+        if (task.startsWith("wait:")) {
+          const seconds = parseInt(task.split(":")[1]) || 2;
+          pluginLogger.info(`Waiting ${seconds} seconds...`, "compose");
+          await this.sleep(seconds * 1000);
+          continue;
         }
 
-        case "up":
-          success = await composeService.up(composeFile, {
-            build: settings.buildOnUp,
-            service: targetService
-          });
-          shouldOpenLogs = settings.openLogsOnUp || false;
-          break;
-
-        case "down":
-          success = await composeService.down(composeFile, targetService);
-          break;
-
-        case "restart":
-          success = await composeService.restart(composeFile, targetService);
-          break;
-
-        case "build": {
-          const result = await composeService.build(composeFile, targetService);
-          success = result.success;
-          shouldOpenLogs = settings.openLogsOnBuild || false;
-          break;
+        // Handle logs task
+        if (task === "logs") {
+          await this.openComposeLogs(settings);
+          continue;
         }
 
-        case "pull":
-          success = await composeService.pull(composeFile, targetService);
+        // Handle compose commands
+        const success = await this.executeComposeTask(task, composeFile, settings, targetService);
+        if (!success) {
+          pluginLogger.error(`Task ${task} failed, stopping sequence`, "compose");
+          await ev.action.showAlert();
           break;
+        }
       }
 
-      if (success && shouldOpenLogs) {
-        await this.openLogs(settings);
-      }
+      await ev.action.showOk();
 
       // Refresh display
       const version = this.settingsVersion.get(ev.action.id);
@@ -192,7 +194,75 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
 
     } catch (error) {
       pluginLogger.error(`Compose action failed: ${error instanceof Error ? error.message : "Unknown error"}`, "compose");
+      await ev.action.showAlert();
     }
+  }
+
+  /**
+   * Execute a single compose task
+   */
+  private async executeComposeTask(
+    task: string,
+    composeFile: ComposeFile,
+    settings: ComposeSettings,
+    targetService?: string
+  ): Promise<boolean> {
+    switch (task) {
+      case "toggle": {
+        const stack = await composeService.getStackStatus(composeFile);
+        if (stack.status === "running" || stack.status === "partial") {
+          return await composeService.down(composeFile, targetService);
+        } else {
+          const success = await composeService.up(composeFile, {
+            build: settings.buildOnUp,
+            service: targetService
+          });
+          if (success && settings.openLogsOnUp) {
+            await this.openComposeLogs(settings);
+          }
+          return success;
+        }
+      }
+
+      case "up": {
+        const success = await composeService.up(composeFile, {
+          build: settings.buildOnUp,
+          service: targetService
+        });
+        if (success && settings.openLogsOnUp) {
+          await this.openComposeLogs(settings);
+        }
+        return success;
+      }
+
+      case "down":
+        return await composeService.down(composeFile, targetService);
+
+      case "restart":
+        return await composeService.restart(composeFile, targetService);
+
+      case "build": {
+        const result = await composeService.build(composeFile, targetService);
+        if (result.success && settings.openLogsOnBuild) {
+          await this.openComposeLogs(settings);
+        }
+        return result.success;
+      }
+
+      case "pull":
+        return await composeService.pull(composeFile, targetService);
+
+      default:
+        pluginLogger.warn(`Unknown task type: ${task}`, "compose");
+        return true; // Continue sequence for unknown tasks
+    }
+  }
+
+  /**
+   * Sleep for specified milliseconds
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<ComposeSettings>): Promise<void> {
@@ -367,28 +437,44 @@ export class DockerComposeAction extends SingletonAction<ComposeSettings> {
     }
   }
 
-  private async openLogs(settings: ComposeSettings): Promise<void> {
+  /**
+   * Open Docker Compose logs (streams logs from the entire stack or specific service)
+   */
+  private async openComposeLogs(settings: ComposeSettings): Promise<void> {
     const { composePath, projectName, targetService, serverId } = settings;
 
     try {
       await this.ensureConnected(serverId);
 
-      const identifier = targetService || projectName || composePath;
-      const displayName = settings.displayName || projectName || "Compose Stack";
+      const composeFile = await this.getComposeFile(settings);
+      if (!composeFile) {
+        pluginLogger.error("Cannot open logs: compose file not found", "compose");
+        return;
+      }
 
-      const serverResult = await logServerManager.createServer(
-        identifier,
+      const displayName = settings.displayName || projectName || "Compose Stack";
+      pluginLogger.info(`Opening compose logs for ${displayName} (service: ${targetService || "all"})`, "compose");
+
+      // Create a compose-specific log server
+      const serverConfig = serverId ? globalSettings.getServerById(serverId) : globalSettings.getServerConfig();
+
+      const serverResult = await logServerManager.createComposeLogServer(
+        composeFile,
+        targetService,
         displayName,
-        200,
-        2,
-        "full"
+        200,  // logLines
+        2,    // refreshRate
+        "full",
+        serverConfig || undefined
       );
 
       if (serverResult) {
         this.openBrowser(serverResult.url);
+      } else {
+        pluginLogger.error("Failed to create compose log server", "compose");
       }
     } catch (error) {
-      pluginLogger.error(`Failed to open logs: ${error instanceof Error ? error.message : "Unknown error"}`, "compose");
+      pluginLogger.error(`Failed to open compose logs: ${error instanceof Error ? error.message : "Unknown error"}`, "compose");
     }
   }
 
